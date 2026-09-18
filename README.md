@@ -31,7 +31,7 @@ Nothing is invented. Every claim in `meeting_state`, `conflicts`, and `risks` ca
 ```
                     ┌─────────────────────┐
    transcript  ───▶ │   Segmentation LLM   │ ───▶  speaker-labeled
-                    │  (OpenRouter call 1) │       events [{id, speaker, text}]
+                    │ (OpenAI API call 1)  │       events [{id, speaker, text}]
                     └─────────────────────┘
                               │
    recording   ───▶ ┌─────────────────────┐        (skips segmentation —
@@ -42,7 +42,7 @@ Nothing is invented. Every claim in `meeting_state`, `conflicts`, and `risks` ca
                               ▼
                     ┌─────────────────────┐
                     │    Synthesis LLM      │ ───▶  meeting_state / conflicts /
-                    │  (OpenRouter call 2)  │       gaps / risks / dependencies
+                    │ (OpenAI API call 2)   │       gaps / risks / dependencies
                     └─────────────────────┘
                               │
                               ▼
@@ -77,6 +77,8 @@ Open [http://localhost:3000](http://localhost:3000).
 pip install -r requirements.txt
 ```
 
+Model calls use OpenAI API keys. (OpenRouter was used only for stress-testing during development — not part of normal operation.)
+
 Create a `.env` file:
 
 ```env
@@ -86,8 +88,8 @@ ASSEMBLYAI_API_KEY=your_real_key_here
 
 | Variable | Required for | Notes |
 |---|---|---|
-| `OPENROUTER_API_KEY` | Everything | All model calls go through [OpenRouter](https://openrouter.ai) (`openai/gpt-5-mini`), never the OpenAI API directly. Needs enough account credit to afford `SYNTHESIS_MAX_TOKENS` (16384) — OpenRouter pre-authorizes the full cap against your balance regardless of actual usage. |
-| `ASSEMBLYAI_API_KEY` | Recording upload only | Speaker diarization goes through [AssemblyAI](https://www.assemblyai.com/) — OpenRouter only routes text LLMs, it has no transcription capability. The paste-a-transcript flow works without this key. |
+| `OPENROUTER_API_KEY` | Everything | Your OpenAI API key (`openai/gpt-5-mini`) for all model calls. Needs enough account credit to afford `SYNTHESIS_MAX_TOKENS` (16384) — the full cap is pre-authorized against your balance regardless of actual usage. |
+| `ASSEMBLYAI_API_KEY` | Recording upload only | Speaker diarization goes through [AssemblyAI](https://www.assemblyai.com/) — the OpenAI API only handles text, it has no transcription capability. The paste-a-transcript flow works without this key. |
 
 ```bash
 uvicorn main:app --reload
@@ -146,7 +148,7 @@ PRODUCT.md, DESIGN.md       Durable product/design decisions
 - **Frontend (marketing):** Next.js 14, TypeScript, Tailwind CSS, shadcn-style `components/ui`, self-hosted Space Grotesk / Inter / JetBrains Mono.
 - **Frontend (tool):** vanilla HTML/CSS/JS, no build step, no framework.
 - **Backend:** FastAPI, served with Uvicorn.
-- **Model provider:** [OpenRouter](https://openrouter.ai) (`openai/gpt-5-mini`).
+- **Model provider:** OpenAI API (`openai/gpt-5-mini`). OpenRouter was used only for stress-testing during development.
 - **Speech-to-text & diarization:** [AssemblyAI](https://www.assemblyai.com/).
 
 ## Status
