@@ -1,101 +1,102 @@
-import Image from "next/image";
+import { ArrowDown } from "lucide-react";
 
-export default function Home() {
+import { HeroDemo } from "@/components/marketing/hero-demo";
+import { StateComparison } from "@/components/marketing/state-comparison";
+import { StatusLegend } from "@/components/marketing/status-legend";
+
+export default function HomePage() {
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
+    <div className="flex-1 bg-grain">
+      {/* ── Hero ── */}
+      <section className="relative overflow-hidden px-6 pt-20 pb-24 sm:pt-28 sm:pb-32">
+        <div
+          className="glow-spot h-[26rem] w-[26rem] -left-40 -top-40"
+          style={{ backgroundColor: "rgba(96,165,250,0.12)" }}
         />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+        <div
+          className="glow-spot h-[22rem] w-[22rem] right-[-6rem] top-10"
+          style={{ backgroundColor: "rgba(248,113,113,0.1)" }}
+        />
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+        <div className="relative mx-auto grid max-w-6xl gap-14 lg:grid-cols-[1.1fr_1fr] lg:items-center">
+          <div>
+            <h1 className="font-display max-w-xl text-[2.75rem] font-medium leading-[1.08] tracking-[-0.03em] text-[var(--text-primary)] sm:text-6xl">
+              What actually got decided?
+            </h1>
+
+            <p className="mt-6 max-w-lg text-lg leading-relaxed text-[var(--text-secondary)]">
+              Paste a transcript. Get back what was decided, what was only
+              committed, where people disagreed, and what&apos;s still
+              hanging — every line traced back to who said it.
+            </p>
+
+            <a
+              href="#proof"
+              className="mt-9 inline-flex items-center gap-2 rounded-lg bg-[var(--text-primary)] px-5 py-3 text-sm font-medium text-[#0A0A0C] transition-transform duration-150 hover:brightness-110 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-[var(--status-committed)] focus-visible:outline-offset-2"
+            >
+              See it change
+              <ArrowDown className="h-3.5 w-3.5" strokeWidth={2.5} />
+            </a>
+
+            <p className="mt-4 text-xs font-mono text-[var(--text-disabled)]">
+              runs on your own OpenRouter key · nothing uploaded to a third party
+            </p>
+          </div>
+
+          <div className="flex justify-center lg:justify-end">
+            <HeroDemo />
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      </section>
+
+      {/* ── Proof: before / after ── */}
+      <section id="proof" className="border-t border-[var(--border)] px-6 py-20 sm:py-24">
+        <div className="mx-auto max-w-5xl">
+          <h2 className="font-display max-w-md text-3xl font-medium leading-tight tracking-[-0.02em] text-[var(--text-primary)] sm:text-4xl">
+            Same meeting. Same words. One version you can act on.
+          </h2>
+          <p className="mt-4 max-w-xl text-base leading-relaxed text-[var(--text-secondary)]">
+            This is the exact demo transcript shipped with the tool — three
+            people, one launch, two things they never agreed on.
+          </p>
+
+          <div className="mt-10">
+            <StateComparison />
+          </div>
+        </div>
+      </section>
+
+      {/* ── The five states ── */}
+      <section className="border-t border-[var(--border)] px-6 py-20 sm:py-24">
+        <div className="mx-auto max-w-5xl">
+          <h2 className="font-display max-w-md text-3xl font-medium leading-tight tracking-[-0.02em] text-[var(--text-primary)] sm:text-4xl">
+            Five states. Nothing else.
+          </h2>
+          <p className="mt-4 max-w-xl text-base leading-relaxed text-[var(--text-secondary)]">
+            Every topic in a meeting ends up in exactly one of these — no
+            sentiment score, no vague &ldquo;action items,&rdquo; no summary
+            paragraph standing in for a decision.
+          </p>
+
+          <div className="mt-10 border-t border-[var(--border-subtle)] pt-8">
+            <StatusLegend />
+          </div>
+        </div>
+      </section>
+
+      {/* ── Close ── */}
+      <section className="border-t border-[var(--border)] px-6 py-20 sm:py-24">
+        <div className="mx-auto max-w-2xl text-center">
+          <h2 className="font-display text-3xl font-medium leading-tight tracking-[-0.02em] text-[var(--text-primary)] sm:text-4xl">
+            Most meeting tools summarize what was said.
+            <br />
+            This one tells you what&apos;s now true.
+          </h2>
+          <p className="mt-6 text-sm font-mono text-[var(--text-disabled)]">
+            uvicorn main:app --reload · then open /static/
+          </p>
+        </div>
+      </section>
     </div>
   );
 }

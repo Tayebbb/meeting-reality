@@ -1,36 +1,56 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Meeting Reality Engine
 
-## Getting Started
+Turns a raw meeting transcript into structured, evidence-grounded intelligence: what was decided, what was committed (with owner/deadline), what's still only discussed, where participants explicitly conflicted, and what was implied but never resolved. Every claim is traceable back to the exact line it came from.
 
-First, run the development server:
+This repo has two parts with a deliberate division of labor:
+
+- **`app/`** — a Next.js marketing/landing page (the persuasive front door).
+- **`main.py` + `static/index.html`** — the actual working tool: paste a transcript, it segments it into evidence events, synthesizes meeting state via an LLM, and renders an interactive graph, insights sidebar, and action board.
+
+## Running the marketing site
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Running the working tool
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+pip install -r requirements.txt
+```
 
-## Learn More
+Create a `.env` file (see `.env` in the repo for the expected shape) with:
 
-To learn more about Next.js, take a look at the following resources:
+```
+OPENROUTER_API_KEY=your_real_key_here
+ASSEMBLYAI_API_KEY=your_real_key_here
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Model calls go through [OpenRouter](https://openrouter.ai) (`openai/gpt-5-mini`), not the OpenAI API directly. `ASSEMBLYAI_API_KEY` is only needed for the recording-upload flow (speaker diarization) — the paste-a-transcript flow works without it.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+uvicorn main:app --reload
+```
 
-## Deploy on Vercel
+Open [http://localhost:8000/static/](http://localhost:8000/static/). Either:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- Click **Load demo** for a ready-made transcript, or paste your own, then **Analyze**; or
+- Switch to **Upload recording**, drop an mp4/audio file, then **Transcribe & detect speakers**. Speakers come back labeled "User 1", "User 2", ... — rename them (with an inline play-sample per speaker) on the "Who's who?" screen, then **Continue to analysis**.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Tests
+
+```bash
+pytest
+```
+
+Every `/api/*` endpoint has coverage in `test_main.py`, including a full structural test of the demo transcript's expected output.
+
+## Stack
+
+- **Frontend (marketing):** Next.js 14, TypeScript, Tailwind CSS, shadcn-style `components/ui`.
+- **Frontend (tool):** vanilla HTML/CSS/JS, no build step.
+- **Backend:** FastAPI, served with Uvicorn.
+- **Model provider:** OpenRouter.
