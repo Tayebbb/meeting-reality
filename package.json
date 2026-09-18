@@ -1,6 +1,7 @@
 {
   "name": "meeting-reality",
   "version": "0.1.0",
+  "description": "Meeting Reality Engine — turns a raw meeting transcript or recording into evidence-grounded state: what was decided, committed, conflicted, or never resolved.",
   "private": true,
   "scripts": {
     "dev": "next dev",
