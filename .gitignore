@@ -42,3 +42,7 @@ __pycache__/
 .pytest_cache/
 .venv/
 venv/
+
+# local AI-assistant tooling state (not needed to build or run the app)
+.claude/
+.impeccable/

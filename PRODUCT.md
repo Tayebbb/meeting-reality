@@ -21,19 +21,20 @@ Most meeting-notes/AI-summary tools produce a prose recap. This product reconstr
 ## Operating Context
 
 - Two frontends exist in this repo with a deliberate division of labor:
-  - `static/index.html` + FastAPI (`main.py`) is the working product surface: paste a transcript **or upload a recording**, it segments/diarizes into evidence events, then synthesizes meeting_state / conflicts / gaps / risks / dependencies via an LLM (OpenRouter), and renders an interactive graph + insights sidebar + action board.
+  - `static/index.html` + FastAPI (`main.py`) is the working product surface: paste a transcript **or upload a recording**, it segments/transcribes into evidence events, then synthesizes meeting_state / conflicts / gaps / risks / dependencies via the OpenAI API, and renders it across three views (Recap, Timeline, Mindmap) plus an insights sidebar and action board.
   - The Next.js app (`app/`) is the marketing/landing front door — a persuasive surface for the audience above, linking or embedding toward the working tool rather than reimplementing its logic.
-- Model calls go through OpenRouter (`OPENROUTER_API_KEY`, `openai/gpt-5-mini`), never api.openai.com directly — see AGENTS.md.
-- Speaker diarization for uploaded audio/video goes through AssemblyAI (`ASSEMBLYAI_API_KEY`) — OpenRouter only routes text LLMs, it has no transcription capability.
+- Model calls go through OpenAI's API directly (`OPENAI_API_KEY`, currently `gpt-3.5-turbo`). See AGENTS.md.
+- Transcription for uploaded audio/video goes through OpenAI's Whisper API (`whisper-1`), using the same `OPENAI_API_KEY`. Whisper has no native diarization, so speaker labels are identified with a follow-up LLM call.
 - Status taxonomy (functional meaning, not just color): DECIDED (green), COMMITTED (blue), DISCUSSED (amber), CONFLICT (red), UNKNOWN (gray). This mapping is product semantics and must be preserved across any redesign.
 
 ## Capabilities and Constraints
 
 - Evidence-id validation: any claim whose cited evidence_ids don't exist in the transcript is stripped server-side before it reaches the UI — the product's core trust guarantee.
-- Existing working-tool UI already includes: dependency graph with node cards, side panel with full evidence quotes, "What wasn't decided" / "What could go wrong" insights sidebar, a read-only Action Board for COMMITTED items, and a "Load demo" transcript for live demos.
-- Media upload flow: upload mp4/audio → AssemblyAI diarizes it into "User 1" / "User 2" ... speaker-labeled events (in order of first appearance) → the user renames each speaker (with an in-browser play-sample control seeked to that speaker's first line, no server round-trip) → renamed events go straight to synthesis (segmentation is skipped — diarization already produced the events).
-- `gpt-5-mini` is a reasoning model: its internal reasoning tokens draw from the same `max_tokens` budget as the visible JSON output. Too-small a cap truncates the response silently (invalid JSON) rather than failing loudly; the app checks `finish_reason` and returns a clear error instead. Confirmed against the live API.
-- OpenRouter pre-authorizes the full requested `max_tokens` against account balance, regardless of actual usage — a low-balance key can get a 402 even for a two-line meeting. Not fixable in code; requires the account to hold sufficient credit for `SYNTHESIS_MAX_TOKENS` (currently 16384).
+- Existing working-tool UI already includes: dependency graph with node cards, side panel with full evidence quotes, "What wasn't decided" / "What could go wrong" insights sidebar, a read-only Action Board for COMMITTED items, and three result views (Recap, Timeline, Mindmap) rendered from one response.
+- Media upload flow: upload mp4/audio → OpenAI Whisper transcribes it, then an LLM call identifies speaker changes, producing "User 1" / "User 2" ... speaker-labeled events (in order of first appearance) → the user renames each speaker (with an in-browser play-sample control seeked to that speaker's first line, no server round-trip) → renamed events go straight to synthesis (segmentation is skipped — transcription already produced the events).
+- Some models spend part of their `max_tokens` budget on hidden reasoning tokens before any visible JSON is written. Too-small a cap truncates the response silently (invalid JSON) rather than failing loudly; the app checks `finish_reason` and returns a clear error instead. Confirmed against the live API.
+- Calls occasionally return 429 (rate-limited) under load. `main.py`'s `_call_with_retry` retries these with backoff; this is expected, routine behavior, not a failure to fix elsewhere.
+- Classification nuance (whether an unresolved-but-overridden disagreement reads as CONFLICT vs DECIDED) is sensitive to prompt wording, not just model choice — re-validate live before changing MODEL or the synthesis prompt's classification rules.
 - The Next.js landing page currently has no real analyze functionality — it is presentational only.
 
 ## Brand Commitments

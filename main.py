@@ -1,11 +1,10 @@
 from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel
-from openai import OpenAI, OpenAIError
+from pydantic import BaseModel, field_validator
+from openai import OpenAI, OpenAIError, RateLimitError
 from dotenv import load_dotenv
 
-import httpx
+import asyncio
 import json
 import logging
 import os
@@ -28,6 +27,13 @@ class AnalyzeRequest(BaseModel):
     transcript: str
     title: str | None = None
     participants: str | None = None
+
+    @field_validator("transcript")
+    @classmethod
+    def transcript_must_not_be_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("transcript must not be empty or whitespace-only")
+        return value
 
 
 class TranscribedEvent(BaseModel):
@@ -121,9 +127,21 @@ class AnalysisResult(BaseModel):
     summary_stats: SummaryStats
 
 
+class RecapBeat(BaseModel):
+    text: str
+    related_topic: str | None = None
+    evidence_ids: list[str]
+
+
+class Recap(BaseModel):
+    overview: str
+    beats: list[RecapBeat]
+
+
 class AnalyzeResponse(BaseModel):
     events: list[Event]
     analysis: AnalysisResult
+    recap: Recap | None = None
 
 
 # ── JSON schemas for structured outputs ────────────────────────────────────
@@ -287,6 +305,35 @@ SYNTHESIS_SCHEMA: dict[str, Any] = {
     },
 }
 
+RECAP_SCHEMA: dict[str, Any] = {
+    "name": "recap",
+    "strict": True,
+    "schema": {
+        "type": "object",
+        "properties": {
+            "overview": {"type": "string"},
+            "beats": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "text": {"type": "string"},
+                        "related_topic": {"type": ["string", "null"]},
+                        "evidence_ids": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                        },
+                    },
+                    "required": ["text", "related_topic", "evidence_ids"],
+                    "additionalProperties": False,
+                },
+            },
+        },
+        "required": ["overview", "beats"],
+        "additionalProperties": False,
+    },
+}
+
 
 # ── System prompts ─────────────────────────────────────────────────────────
 
@@ -314,7 +361,12 @@ SYNTHESIS_SYSTEM_PROMPT: str = (
     "   - DECIDED: the group reached a clear decision.\n"
     "   - COMMITTED: someone took on an action item.\n"
     "   - DISCUSSED: talked about but no decision or commitment.\n"
-    "   - CONFLICT: two or more participants explicitly disagree.\n"
+    "   - CONFLICT: two or more participants explicitly disagree, AND the "
+    "transcript never shows the disagreeing party retracting or agreeing. "
+    "One person unilaterally declaring a decision, restating their own "
+    "position more firmly, or asserting \"that's final\" does NOT resolve "
+    "a conflict by itself — it stays CONFLICT unless the other side is "
+    "shown backing down or agreeing.\n"
     "   - UNKNOWN: the transcript clearly implies this topic matters "
     "(referenced or obviously required by what was discussed) but it was "
     "never actually resolved. Do NOT invent topics with no basis in the "
@@ -337,34 +389,55 @@ SYNTHESIS_SYSTEM_PROMPT: str = (
     "matter. Do not invent topics from thin air."
 )
 
-# This project is stress-tested against OpenRouter, never the real OpenAI
-# API — every model call goes through OPENROUTER_BASE_URL using an
-# OpenRouter model slug.
-OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
-MODEL: str = "openai/gpt-5-mini"
+RECAP_SYSTEM_PROMPT: str = (
+    "You are catching a coworker up on a meeting they missed. Write a plain-"
+    "language, conversational, chronological recap — this is the opposite of "
+    "a formal classification report.\n\n"
+    "You will receive an array of events, each with an id, speaker, and text. "
+    "Produce:\n\n"
+    "1. overview — 2-3 sentences, plain language, what this meeting was "
+    "about and roughly where things landed.\n"
+    "2. beats — up to 8 short, plain sentences describing what happened, in "
+    "chronological order. Each beat should read like something you'd "
+    "actually say out loud to a coworker, not a database entry.\n\n"
+    "CRITICAL RULES:\n"
+    "- NEVER use the words DECIDED, COMMITTED, DISCUSSED, CONFLICT, or "
+    "UNKNOWN (in any capitalization) anywhere in overview or beat text. "
+    "Those are labels from a separate, more formal classification pass — "
+    "this recap must read completely differently: plain and conversational, "
+    "never a reformatted list of statuses.\n"
+    "- Maximum 8 beats, regardless of transcript length. Pick the 8 most "
+    "important moments.\n"
+    "- Each beat's evidence_ids MUST reference actual event ids from the "
+    "input. NEVER invent an evidence_id that does not exist.\n"
+    "- related_topic is optional — set it to a short topic name only when "
+    "the beat clearly maps to one specific subject, otherwise null."
+)
 
-# Explicit output caps. Without these, some OpenRouter models default to a
-# max_tokens near the full context window, which OpenRouter pre-authorizes
-# against account balance up front — a small/free-tier balance then gets
-# rejected with a 402 even though actual usage would be far smaller.
-#
-# gpt-5-mini is a reasoning model: its internal reasoning tokens are drawn
-# from the same max_tokens budget as the visible completion, and can consume
-# the large majority of it before any JSON is written. A cap that's generous
-# enough for the visible schema but not for reasoning overhead silently
-# truncates the JSON response (finish_reason "length") instead of failing
-# loudly — confirmed against the live API, where a 2500-token cap spent 1792
-# tokens on reasoning alone for a two-line meeting. These caps carry real
-# headroom for that; lowering them without accounting for reasoning tokens
-# will reintroduce mid-JSON truncation on real (larger) meetings.
+# OpenAI API configuration
+# Uses gpt-3.5-turbo for cost-effectiveness with good performance
+# Users should set their own OPENAI_API_KEY environment variable
+MODEL: str = "gpt-3.5-turbo"
+
+# Explicit output caps. Some models spend part of max_tokens on hidden
+# reasoning tokens before any visible JSON is written, which can silently
+# truncate the response (finish_reason "length") instead of failing loudly
+# if the cap is too tight — confirmed against the live API. These caps carry
+# real headroom for that; lowering them without re-testing live will
+# reintroduce mid-JSON truncation on real (larger) meetings.
 SEGMENTATION_MAX_TOKENS: int = 8192
 SYNTHESIS_MAX_TOKENS: int = 16384
+RECAP_MAX_TOKENS: int = 8000
 
-# Speaker diarization for uploaded recordings goes through AssemblyAI —
-# OpenRouter only routes text LLMs, it has no audio/transcription capability.
-ASSEMBLYAI_BASE_URL: str = "https://api.assemblyai.com/v2"
-ASSEMBLYAI_POLL_INTERVAL_SECONDS: float = 3.0
-ASSEMBLYAI_POLL_TIMEOUT_SECONDS: float = 600.0
+# Rough token estimate (chars / 4, no tokenizer dependency) above which the
+# recap call (Call 3) is skipped entirely rather than risking a truncated or
+# unaffordable response on a long transcript. Chunked/map-reduce
+# summarization for long transcripts is a documented but unbuilt Phase 2
+# feature — this threshold is the deliberate MVP boundary, not a bug.
+RECAP_TOKEN_THRESHOLD: int = 6000
+
+# Audio transcription uses OpenAI Whisper API
+# Speaker identification is done by the LLM analyzing the transcript text
 MAX_UPLOAD_BYTES: int = 500 * 1024 * 1024  # 500 MB
 
 
@@ -447,30 +520,33 @@ def validate_evidence_ids(
 # ── OpenAI client factory ──────────────────────────────────────────────────
 
 def _get_openai_client() -> OpenAI:
-    """Return an OpenAI-SDK client pointed at OpenRouter.
+    """Return an OpenAI-SDK client for the OpenAI API.
 
-    Reads OPENROUTER_API_KEY from the environment. This project is
-    stress-tested against OpenRouter, never the real OpenAI API — the client
-    always targets OPENROUTER_BASE_URL, not api.openai.com.
+    Reads OPENAI_API_KEY from the environment.
     """
-    api_key: str | None = os.getenv("OPENROUTER_API_KEY")
+    api_key: str | None = os.getenv("OPENAI_API_KEY")
     if not api_key:
         raise HTTPException(
             status_code=500,
-            detail="OPENROUTER_API_KEY is not set in the environment.",
+            detail="OPENAI_API_KEY is not set in the environment. Please set your OpenAI API key.",
         )
-    return OpenAI(api_key=api_key, base_url=OPENROUTER_BASE_URL)
+    return OpenAI(api_key=api_key)
 
 
-def _get_assemblyai_key() -> str:
-    """Return the AssemblyAI API key, reading ASSEMBLYAI_API_KEY from the environment."""
-    api_key: str | None = os.getenv("ASSEMBLYAI_API_KEY")
-    if not api_key:
-        raise HTTPException(
-            status_code=500,
-            detail="ASSEMBLYAI_API_KEY is not set in the environment.",
-        )
-    return api_key
+def _call_with_retry(fn, max_retries: int = 2, base_delay_seconds: float = 3.0):
+    """Call fn() and retry on 429 (rate-limited upstream) — routine, expected
+    behavior under OpenAI API load, not a hard failure. Any other OpenAIError
+    propagates immediately, unretried.
+    """
+    for attempt in range(max_retries + 1):
+        try:
+            return fn()
+        except RateLimitError:
+            if attempt >= max_retries:
+                raise
+            time.sleep(base_delay_seconds * (attempt + 1))
+
+
 
 
 # ── Synthesis (shared by transcript and media-upload flows) ───────────────
@@ -501,7 +577,7 @@ def _run_synthesis(
         )
 
     try:
-        synthesis_response = client.chat.completions.create(
+        synthesis_response = _call_with_retry(lambda: client.chat.completions.create(
             model=MODEL,
             messages=[
                 {"role": "system", "content": SYNTHESIS_SYSTEM_PROMPT},
@@ -512,7 +588,7 @@ def _run_synthesis(
                 "json_schema": SYNTHESIS_SCHEMA,
             },
             max_tokens=SYNTHESIS_MAX_TOKENS,
-        )
+        ))
     except OpenAIError as exc:
         raise HTTPException(
             status_code=502,
@@ -548,87 +624,202 @@ def _run_synthesis(
     return validate_evidence_ids(analysis_data, valid_ids)
 
 
-# ── AssemblyAI diarization ─────────────────────────────────────────────────
+def _run_recap(client: OpenAI, events: list[dict[str, str]]) -> dict[str, Any] | None:
+    """Run the recap LLM call (Call 3) over already-segmented events.
 
-def _assemblyai_transcribe(file_bytes: bytes, filename: str) -> dict[str, Any]:
-    """Upload media to AssemblyAI and run transcription with speaker diarization.
-
-    Blocks synchronously until the job completes or ASSEMBLYAI_POLL_TIMEOUT_SECONDS
-    elapses. Returns the raw AssemblyAI transcript object (contains `utterances`).
+    Runs in parallel with synthesis (Call 2) — both depend only on Call 1's
+    segmented events, nothing from Call 2. Unlike synthesis, failures here
+    are non-fatal: the recap is a fast, skimmable on-ramp, not the
+    analytical core of the response, so any error degrades to `None`
+    (recap: null) rather than failing the whole /api/analyze request.
     """
-    api_key = _get_assemblyai_key()
-    headers = {"authorization": api_key}
+    valid_ids: set[str] = {e["id"] for e in events}
+    events_payload: str = json.dumps(events, indent=2)
+    user_content: str = (
+        f"Here are the segmented events from the meeting:\n\n{events_payload}"
+    )
 
-    with httpx.Client(timeout=60.0) as http:
-        try:
-            upload_response = http.post(
-                f"{ASSEMBLYAI_BASE_URL}/upload",
-                headers=headers,
-                content=file_bytes,
+    try:
+        response = _call_with_retry(lambda: client.chat.completions.create(
+            model=MODEL,
+            messages=[
+                {"role": "system", "content": RECAP_SYSTEM_PROMPT},
+                {"role": "user", "content": user_content},
+            ],
+            response_format={
+                "type": "json_schema",
+                "json_schema": RECAP_SCHEMA,
+            },
+            max_tokens=RECAP_MAX_TOKENS,
+        ))
+    except OpenAIError as exc:
+        logger.warning("Recap call (Call 3) failed, degrading to recap: null: %s", exc)
+        return None
+
+    if response.choices[0].finish_reason == "length":
+        logger.warning(
+            "Recap call (Call 3) truncated at max_tokens=%d, degrading to recap: null.",
+            RECAP_MAX_TOKENS,
+        )
+        return None
+
+    raw: str | None = response.choices[0].message.content
+    if not raw:
+        logger.warning("Recap call (Call 3) returned empty content, degrading to recap: null.")
+        return None
+
+    try:
+        recap_data: dict[str, Any] = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        logger.warning(
+            "Recap call (Call 3) response was not valid JSON, degrading to recap: null: %s",
+            exc,
+        )
+        return None
+
+    # Strip any beat whose evidence_ids reference nonexistent events, same
+    # non-fatal-drop pattern as validate_evidence_ids uses for synthesis.
+    original_beats: list[dict[str, Any]] = recap_data.get("beats", [])
+    validated_beats: list[dict[str, Any]] = []
+    for beat in original_beats:
+        if all(eid in valid_ids for eid in beat.get("evidence_ids", [])):
+            validated_beats.append(beat)
+        else:
+            bad = [e for e in beat.get("evidence_ids", []) if e not in valid_ids]
+            logger.warning(
+                "Stripped recap beat '%s': invalid evidence_ids %s",
+                beat.get("text"), bad,
             )
-            upload_response.raise_for_status()
-        except httpx.HTTPError as exc:
-            raise HTTPException(
-                status_code=502,
-                detail=f"AssemblyAI upload failed: {exc}",
-            ) from exc
+    recap_data["beats"] = validated_beats
 
-        upload_url: str | None = upload_response.json().get("upload_url")
-        if not upload_url:
-            raise HTTPException(
-                status_code=502,
-                detail="AssemblyAI upload did not return an upload_url.",
-            )
+    return recap_data
 
-        try:
-            transcript_response = http.post(
-                f"{ASSEMBLYAI_BASE_URL}/transcript",
-                headers=headers,
-                json={"audio_url": upload_url, "speaker_labels": True},
-            )
-            transcript_response.raise_for_status()
-        except httpx.HTTPError as exc:
-            raise HTTPException(
-                status_code=502,
-                detail=f"AssemblyAI transcript request failed: {exc}",
-            ) from exc
 
-        transcript_id: str = transcript_response.json()["id"]
+# ── OpenAI Whisper transcription ───────────────────────────────────────────
 
-        deadline = time.monotonic() + ASSEMBLYAI_POLL_TIMEOUT_SECONDS
-        while True:
-            try:
-                poll_response = http.get(
-                    f"{ASSEMBLYAI_BASE_URL}/transcript/{transcript_id}",
-                    headers=headers,
-                )
-                poll_response.raise_for_status()
-            except httpx.HTTPError as exc:
-                raise HTTPException(
-                    status_code=502,
-                    detail=f"AssemblyAI polling failed: {exc}",
-                ) from exc
+def _openai_transcribe(file_bytes: bytes, filename: str) -> dict[str, Any]:
+    """Transcribe audio using OpenAI Whisper API.
 
-            poll_data: dict[str, Any] = poll_response.json()
-            status: str = poll_data.get("status", "")
+    Returns a dict with utterances in the format expected by the speaker flow,
+    with generic speaker labels "User 1", "User 2", etc. based on detected pauses.
+    """
+    client = _get_openai_client()
 
-            if status == "completed":
-                return poll_data
-            if status == "error":
-                raise HTTPException(
-                    status_code=502,
-                    detail=f"AssemblyAI transcription failed: {poll_data.get('error')}",
-                )
-            if time.monotonic() > deadline:
-                raise HTTPException(
-                    status_code=504,
-                    detail=(
-                        "AssemblyAI transcription timed out after "
-                        f"{ASSEMBLYAI_POLL_TIMEOUT_SECONDS:.0f}s. The file may be "
-                        "too long — try a shorter clip."
+    try:
+        # Transcribe using Whisper API
+        transcript = client.audio.transcriptions.create(
+            model="whisper-1",
+            file=("audio.mp3", file_bytes, "audio/mpeg"),
+            language="en",
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"OpenAI Whisper transcription failed: {exc}",
+        ) from exc
+
+    if not transcript.text:
+        raise HTTPException(
+            status_code=502,
+            detail="Whisper returned empty transcription.",
+        )
+
+    # Use LLM to identify speakers from the transcript
+    # This is a simple heuristic: we assume speaker changes at natural breaks
+    try:
+        speaker_response = _call_with_retry(lambda: client.chat.completions.create(
+            model=MODEL,
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a meeting transcription assistant. Your job is to identify "
+                        "speaker changes in a transcript based on contextual clues (names mentioned, "
+                        "pronouns, context shifts, etc.). Return a JSON array of objects with "
+                        '{"text": "...", "speaker": "Speaker 1"/"Speaker 2"/etc}. '
+                        "If you cannot reliably identify speakers, assign them sequentially as the "
+                        "speaker seems to change based on context. Preserve the original text exactly."
                     ),
-                )
-            time.sleep(ASSEMBLYAI_POLL_INTERVAL_SECONDS)
+                },
+                {
+                    "role": "user",
+                    "content": f"Identify speakers in this transcript:\n\n{transcript.text}",
+                },
+            ],
+            response_format={
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "speaker_segments",
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "segments": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "text": {"type": "string"},
+                                        "speaker": {"type": "string"},
+                                    },
+                                    "required": ["text", "speaker"],
+                                },
+                            }
+                        },
+                        "required": ["segments"],
+                    },
+                },
+            },
+            max_tokens=4096,
+        ))
+    except Exception as exc:
+        logger.warning(
+            "Speaker identification failed, using generic labels: %s", exc
+        )
+        # Fallback: just use generic speaker labels
+        speaker_response = None
+
+    # Parse speaker segments or use fallback
+    if speaker_response and speaker_response.choices[0].message.content:
+        try:
+            parsed = json.loads(speaker_response.choices[0].message.content)
+            segments = parsed.get("segments", [])
+        except json.JSONDecodeError:
+            segments = []
+    else:
+        segments = []
+
+    # If parsing failed, create a simple fallback with alternating speakers
+    if not segments:
+        sentences = transcript.text.split(". ")
+        segments = [
+            {
+                "text": (sent + (".") if not sent.endswith(".") else sent).strip(),
+                "speaker": f"Speaker {(i % 2) + 1}",
+            }
+            for i, sent in enumerate(sentences)
+            if sent.strip()
+        ]
+
+    # Map speaker names to "User 1", "User 2", etc.
+    speaker_map = {}
+    utterances = []
+    for i, segment in enumerate(segments):
+        speaker = segment.get("speaker", "Unknown")
+        if speaker not in speaker_map:
+            speaker_map[speaker] = f"User {len(speaker_map) + 1}"
+
+        utterances.append({
+            "id": f"e{i + 1}",
+            "speaker": speaker_map[speaker],
+            "text": segment.get("text", ""),
+            "start": 0,  # Whisper doesn't provide timestamps by default
+            "end": 0,
+        })
+
+    return {
+        "utterances": utterances,
+        "audio_duration": 0,  # Not available from Whisper
+    }
 
 
 # ── Endpoints ──────────────────────────────────────────────────────────────
@@ -652,7 +843,7 @@ async def analyze(request: AnalyzeRequest) -> dict[str, Any]:
 
     # ── Call 1: Segmentation ───────────────────────────────────────────
     try:
-        segmentation_response = client.chat.completions.create(
+        segmentation_response = _call_with_retry(lambda: client.chat.completions.create(
             model=MODEL,
             messages=[
                 {"role": "system", "content": SEGMENTATION_SYSTEM_PROMPT},
@@ -663,7 +854,7 @@ async def analyze(request: AnalyzeRequest) -> dict[str, Any]:
                 "json_schema": SEGMENTATION_SCHEMA,
             },
             max_tokens=SEGMENTATION_MAX_TOKENS,
-        )
+        ))
     except OpenAIError as exc:
         raise HTTPException(
             status_code=502,
@@ -697,10 +888,32 @@ async def analyze(request: AnalyzeRequest) -> dict[str, Any]:
 
     events: list[dict[str, str]] = segmentation_data.get("events", [])
 
-    # ── Call 2: Synthesis ──────────────────────────────────────────────
-    analysis_data = _run_synthesis(client, events, request.title, request.participants)
+    # ── Calls 2 & 3: Synthesis + Recap ───────────────────────────────────
+    # Both depend only on Call 1's events, nothing on each other, so they
+    # run concurrently rather than sequentially. The sync OpenAI client is
+    # dispatched to a thread per call so asyncio.gather actually overlaps
+    # them instead of blocking the event loop twice in a row.
+    estimated_tokens: float = len(request.transcript) / 4
+    if estimated_tokens > RECAP_TOKEN_THRESHOLD:
+        logger.info(
+            "Skipping recap (Call 3): estimated %.0f tokens exceeds the "
+            "%d-token threshold. Chunked/map-reduce summarization for long "
+            "transcripts is a documented but unbuilt Phase 2 feature.",
+            estimated_tokens, RECAP_TOKEN_THRESHOLD,
+        )
+        analysis_data = await asyncio.to_thread(
+            _run_synthesis, client, events, request.title, request.participants
+        )
+        recap_data = None
+    else:
+        analysis_data, recap_data = await asyncio.gather(
+            asyncio.to_thread(
+                _run_synthesis, client, events, request.title, request.participants
+            ),
+            asyncio.to_thread(_run_recap, client, events),
+        )
 
-    return {"events": events, "analysis": analysis_data}
+    return {"events": events, "analysis": analysis_data, "recap": recap_data}
 
 
 @app.post("/api/analyze-events")
@@ -721,8 +934,9 @@ async def analyze_events(request: AnalyzeEventsRequest) -> dict[str, Any]:
 
 @app.post("/api/transcribe")
 async def transcribe(file: UploadFile) -> TranscribeMediaResponse:
-    """Upload a recording (audio or video) and diarize it into speaker-labeled events.
+    """Upload a recording (audio or video) and transcribe it into speaker-labeled events.
 
+    Uses OpenAI Whisper for transcription and LLM-based speaker identification.
     Speakers are returned as generic placeholders ("User 1", "User 2", ...)
     in order of first appearance; the frontend lets the user rename them
     before the result is sent to /api/analyze-events.
@@ -736,27 +950,29 @@ async def transcribe(file: UploadFile) -> TranscribeMediaResponse:
             detail=f"File exceeds the {MAX_UPLOAD_BYTES // (1024 * 1024)}MB upload limit.",
         )
 
-    transcript = _assemblyai_transcribe(file_bytes, file.filename or "upload")
+    transcript = await asyncio.to_thread(
+        _openai_transcribe, file_bytes, file.filename or "upload"
+    )
     utterances: list[dict[str, Any]] = transcript.get("utterances") or []
 
     if not utterances:
         raise HTTPException(
             status_code=502,
-            detail="AssemblyAI returned no speech/utterances for this file.",
+            detail="Whisper returned no speech/utterances for this file.",
         )
 
-    # Map AssemblyAI's raw speaker labels ("A", "B", ...) to "User 1", "User 2",
-    # ... in order of first appearance, per the requested UX.
-    speaker_map: dict[str, str] = {}
+    # _openai_transcribe already assigns "User 1", "User 2", ... in order of
+    # first appearance, so just carry those labels through in order.
+    speakers_seen: list[str] = []
     events: list[TranscribedEvent] = []
     for i, utt in enumerate(utterances):
-        raw_speaker: str = utt.get("speaker", "?")
-        if raw_speaker not in speaker_map:
-            speaker_map[raw_speaker] = f"User {len(speaker_map) + 1}"
+        speaker: str = utt.get("speaker", "?")
+        if speaker not in speakers_seen:
+            speakers_seen.append(speaker)
         events.append(
             TranscribedEvent(
                 id=f"e{i + 1}",
-                speaker=speaker_map[raw_speaker],
+                speaker=speaker,
                 text=utt.get("text", ""),
                 start_ms=utt.get("start", 0),
                 end_ms=utt.get("end", 0),
@@ -765,7 +981,7 @@ async def transcribe(file: UploadFile) -> TranscribeMediaResponse:
 
     return TranscribeMediaResponse(
         events=events,
-        speakers=list(speaker_map.values()),
+        speakers=speakers_seen,
         duration_ms=transcript.get("audio_duration", 0) * 1000
         if isinstance(transcript.get("audio_duration"), (int, float))
         else max((e.end_ms for e in events), default=0),

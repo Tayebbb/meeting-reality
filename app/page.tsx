@@ -39,7 +39,7 @@ export default function HomePage() {
             </a>
 
             <p className="mt-4 text-xs font-mono text-[var(--text-disabled)]">
-              runs on your own OpenRouter key · nothing uploaded to a third party
+              runs on your own OpenAI key · nothing uploaded to a third party
             </p>
           </div>
 
@@ -56,7 +56,7 @@ export default function HomePage() {
             Same meeting. Same words. One version you can act on.
           </h2>
           <p className="mt-4 max-w-xl text-base leading-relaxed text-[var(--text-secondary)]">
-            This is the exact demo transcript shipped with the tool — three
+            A representative example of what the tool surfaces — three
             people, one launch, two things they never agreed on.
           </p>
 

@@ -1,112 +1,68 @@
 # Meeting Reality Engine
 
-**Most meeting tools summarize what was said. This one tells you what's now true.**
+**Meetings don't fail because people forget what was said. They fail because nobody agrees on what was decided.**
 
-Paste a transcript — or upload the recording — and get back what was actually decided, what was committed (and by whom, and by when), what was only discussed, where people explicitly disagreed, and what was implied but never resolved. Every claim is traceable back to the exact line it came from, and every claim without real evidence is stripped out before it ever reaches the UI.
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue?logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Uses OpenAI API](https://img.shields.io/badge/Uses-OpenAI%20API-412991)](https://openai.com/)
 
-## Why this exists
+## What is this
 
-Every other AI notetaker hands you a paragraph of prose and calls it done. This one reconstructs *state* — DECIDED / COMMITTED / DISCUSSED / CONFLICT / UNKNOWN, per topic — instead of a summary. Categories a plain summarizer has no concept of:
+Meeting Reality Engine turns a raw meeting transcript — or an uploaded recording — into evidence-grounded state: what was decided, what was committed, where people explicitly disagreed, and what was quietly left unresolved. Every claim it makes is traceable back to the exact line it came from; anything the model can't back up with real evidence is stripped out before it ever reaches the UI.
 
-- **Gaps** — topics the transcript clearly implies matter, but that never actually got resolved.
-- **Conflicts** — pairs of statements where two people said contradictory things, shown side by side.
-- **Risks** — what could go wrong based on soft commitments or unresolved tension, each with a suggested follow-up question.
-- **Dependencies** — when one topic explicitly blocks another.
+## Built at Astra Commons: Dhaka
 
-Nothing is invented. Every claim in `meeting_state`, `conflicts`, and `risks` carries `evidence_ids` pointing at real transcript lines; anything the model cites that doesn't check out against the actual input is dropped server-side before the response ever leaves the API.
+This project was built during **Astra Commons: Dhaka**, a community meetup for developers, students, founders, and AI builders. The session centered on Codex, the GPT-6 Astra launch, and AI-assisted development workflows built on OpenAI's Developer Platform — this repo is a direct product of that hands-on session.
+
+## Table of Contents
+
+- [Features](#features)
+- [Architecture](#architecture)
+- [Tech Stack](#tech-stack)
+- [Quick Start](#quick-start)
+- [Project Structure](#project-structure)
+- [Roadmap](#roadmap)
+- [License](#license)
+- [Acknowledgments](#acknowledgments)
 
 ## Features
 
-- **Paste a transcript or upload a recording.** Drop in an mp4/audio file and it's automatically diarized into speaker-labeled events — no manual splitting required.
-- **Speaker rename with audio preview.** Detected speakers come back as "User 1", "User 2", ...; rename each one inline, with a one-click play-sample of their actual first line so you know who you're naming.
-- **Interactive state graph.** Every topic renders as a node card colored by status, connected by dependency lines where one topic blocks another.
-- **Evidence panel.** Click any node to see the full reasoning and the exact transcript lines it's grounded in.
-- **"What wasn't decided" / "What could go wrong."** Gaps and risks get their own sidebar, not buried in a wall of text — each risk ships with a ready-to-ask follow-up question.
-- **Action Board.** A read-only summary of every COMMITTED item — owner, deadline (or an honest "No confirmed deadline"), and confidence.
-- **Copy summary.** One click to get a plain-text recap for Slack or email.
-- **Built-in demo.** A ready-made three-person launch-planning transcript (with a real date conflict, a real payment-provider conflict, and a genuinely ambiguous commitment) to try instantly, no setup required.
+- **Automatic conflict and gap detection.** Finds where two people said contradictory things and surfaces topics the transcript clearly implies matter but that never actually got resolved — categories a plain summarizer has no concept of.
+- **State reconstruction, not summarization.** Every topic is classified as decided, committed, discussed, in conflict, or unresolved, each with a plain-language reason.
+- **Plain-language Recap.** A separate, conversational "catch a coworker up" narrative — distinct in tone from the structured analysis — generated in parallel with it.
+- **Recording upload with automatic transcription.** Drop in an mp4/audio file; OpenAI Whisper transcribes it automatically, and speakers are identified via LLM analysis. You can rename each speaker inline with a one-click audio preview of their actual first line.
+- **Evidence panel on every claim.** Click any topic to see the full reasoning and the exact transcript lines it's grounded in — the same evidence view is reused for Recap beats.
+- **Risks with ready-to-ask follow-ups.** Each flagged risk ships with a suggested question to ask next time, not just a warning.
+- **Action Board.** A read-only summary of every committed item — owner, deadline (or an honest "No confirmed deadline"), and confidence.
+- **Three result views.** Recap (narrative), Timeline (interactive state graph with dependencies), and Mindmap (radial topic overview) — all rendered from the same response, no extra fetches.
 
-## How it works
+## Architecture
 
-```
-                    ┌─────────────────────┐
-   transcript  ───▶ │   Segmentation LLM   │ ───▶  speaker-labeled
-                    │ (OpenAI API call 1)  │       events [{id, speaker, text}]
-                    └─────────────────────┘
-                              │
-   recording   ───▶ ┌─────────────────────┐        (skips segmentation —
-                     │  AssemblyAI diarize  │ ───▶   diarization already
-                     │  + speaker rename UI │        produced the events)
-                     └─────────────────────┘
-                              │
-                              ▼
-                    ┌─────────────────────┐
-                    │    Synthesis LLM      │ ───▶  meeting_state / conflicts /
-                    │ (OpenAI API call 2)   │       gaps / risks / dependencies
-                    └─────────────────────┘
-                              │
-                              ▼
-                    evidence_id validation
-                    (strip any unverifiable claim)
-                              │
-                              ▼
-                     interactive graph UI
+```mermaid
+flowchart TD
+    A[Transcript text] --> B["Call 1: Segmentation (LLM)"]
+    R[Recording upload] --> C["OpenAI Whisper transcription + LLM speaker ID"]
+    B --> E[Speaker-labeled events]
+    C --> E
+    E --> D2["Call 2: Synthesis — decisions, conflicts, gaps, risks, dependencies"]
+    E --> D3["Call 3: Recap — narrative overview and beats"]
+    D2 --> M["Merged JSON response: events, analysis, recap"]
+    D3 --> M
+    M --> F1[Recap view]
+    M --> F2[Timeline view]
+    M --> F3[Mindmap view]
 ```
 
-This repo intentionally has two frontends with a clean split of responsibility:
+Segmentation (Call 1) always runs first and turns raw text into speaker-labeled events; an uploaded recording reaches that same event shape via OpenAI Whisper transcription and LLM-based speaker identification instead, skipping segmentation entirely. From there, synthesis (Call 2) and the recap (Call 3) run concurrently — both depend only on the segmented events, not on each other — and merge into one JSON response that the frontend renders into any of the three result views (Recap, Timeline, Mindmap) without a second fetch.
 
-| | Purpose | Stack |
-|---|---|---|
-| **`app/`** | Marketing/landing page — the persuasive front door | Next.js 14, TypeScript, Tailwind, shadcn-style `components/ui` |
-| **`main.py` + `static/index.html`** | The actual working tool | FastAPI backend, vanilla HTML/CSS/JS frontend (no build step) |
-
-## Getting started
-
-### Marketing site
-
-```bash
-npm install
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000).
-
-### The working tool
-
-```bash
-pip install -r requirements.txt
-```
-
-Model calls use OpenAI API keys. (OpenRouter was used only for stress-testing during development — not part of normal operation.)
-
-Create a `.env` file:
-
-```env
-OPENROUTER_API_KEY=your_real_key_here
-ASSEMBLYAI_API_KEY=your_real_key_here
-```
-
-| Variable | Required for | Notes |
-|---|---|---|
-| `OPENROUTER_API_KEY` | Everything | Your OpenAI API key (`openai/gpt-5-mini`) for all model calls. Needs enough account credit to afford `SYNTHESIS_MAX_TOKENS` (16384) — the full cap is pre-authorized against your balance regardless of actual usage. |
-| `ASSEMBLYAI_API_KEY` | Recording upload only | Speaker diarization goes through [AssemblyAI](https://www.assemblyai.com/) — the OpenAI API only handles text, it has no transcription capability. The paste-a-transcript flow works without this key. |
-
-```bash
-uvicorn main:app --reload
-```
-
-Open [http://localhost:8000/static/](http://localhost:8000/static/). Either:
-
-- Click **Load demo** for a ready-made transcript, or paste your own, then **Analyze**; or
-- Switch to **Upload recording**, drop an mp4/audio file, then **Transcribe & detect speakers**. Rename each detected speaker on the "Who's who?" screen (with an inline play-sample), then **Continue to analysis**.
-
-## API reference
+### API endpoints
 
 | Endpoint | Method | Body | Returns |
 |---|---|---|---|
-| `/api/analyze` | POST | `{ transcript, title?, participants? }` | `{ events, analysis }` — segments the raw transcript, then synthesizes. |
+| `/api/analyze` | POST | `{ transcript, title?, participants? }` | `{ events, analysis, recap }` — segments the transcript, then runs synthesis and recap in parallel. |
 | `/api/analyze-events` | POST | `{ events, title?, participants? }` | `{ events, analysis }` — synthesizes pre-segmented, speaker-labeled events directly (used by the upload flow). |
-| `/api/transcribe` | POST | `multipart/form-data`, field `file` | `{ events, speakers, duration_ms }` — uploads to AssemblyAI and diarizes; speakers come back as `"User 1"`, `"User 2"`, ... in order of first appearance. |
+| `/api/transcribe` | POST | `multipart/form-data`, field `file` | `{ events, speakers, duration_ms }` — transcribes with OpenAI Whisper and identifies speakers with LLM; speakers come back as `"User 1"`, `"User 2"`, ... in order of first appearance. |
 | `/health` | GET | — | `{ status: "ok" }` |
 
 `analysis` is always shaped as:
@@ -122,35 +78,96 @@ Open [http://localhost:8000/static/](http://localhost:8000/static/). Either:
 }
 ```
 
-## Tests
+`recap` (nullable — see [Roadmap](#roadmap)) is shaped as `{ overview, beats: { text, related_topic, evidence_ids }[] }`.
 
-```bash
-pytest
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Backend | FastAPI, served with Uvicorn |
+| LLM | [OpenAI API](https://openai.com/) using `gpt-3.5-turbo` |
+| Speech-to-text | [OpenAI Whisper API](https://platform.openai.com/docs/guides/speech-to-text) |
+| Speaker identification | LLM-based (OpenAI) |
+| Frontend (working tool) | Vanilla HTML/CSS/JS — no build step |
+| Frontend (marketing site) | Next.js 14, TypeScript, Tailwind CSS |
+
+## Quick Start
+
+1. **Clone the repository.**
+
+   ```bash
+   git clone https://github.com/Tayebbb/meeting-reality.git
+   cd meeting-reality
+   ```
+
+2. **Install Python dependencies.**
+
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. **Add your OpenAI API key to `.env`.**
+
+   Copy `.env.example` to `.env` and fill in your API key:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+   Then edit `.env`:
+
+   ```env
+   OPENAI_API_KEY=sk-your-actual-api-key-here
+   ```
+
+   - **OPENAI_API_KEY**: Get your API key from [OpenAI Platform](https://platform.openai.com/api-keys). This is required for all features (transcript analysis, transcription, and speaker identification).
+
+4. **Run the server.**
+
+   ```bash
+   uvicorn main:app --reload
+   ```
+
+5. **Open it.** Go to [http://localhost:8000/static/](http://localhost:8000/static/), paste a transcript (or upload a recording), and hit **Analyze**.
+
+**Cost note**: The app uses OpenAI's API, which is a paid service. Costs are low (roughly $0.01–$0.05 per analysis depending on transcript length and your OpenAI account's pricing tier), but you'll need an active OpenAI account with available credits.
+
+## Project Structure
+
 ```
+main.py                 FastAPI backend — segmentation, synthesis, recap, transcription
+static/index.html       Working tool frontend (vanilla JS, no build step)
+requirements.txt        Python dependencies
 
-Every endpoint is covered in `test_main.py` — 24 cases, including evidence-id stripping, truncated-response handling, and a full structural test of the demo transcript's expected output, all mocked against a canned model response (no live API calls, no cost).
+app/                     Next.js marketing site
+  layout.tsx
+  page.tsx
+  globals.css
 
-## Project structure
-
-```
-app/                       Next.js marketing site
 components/
-  ui/streaming-text.tsx    Shared "AI typing" component
-  marketing/               Landing-page-specific components
-main.py                    FastAPI backend
-static/index.html          The working tool's frontend (vanilla JS)
-test_main.py                Backend test suite
-PRODUCT.md, DESIGN.md       Durable product/design decisions
+  ui/                    Shared UI primitives (e.g. streaming-text.tsx)
+  marketing/              Landing-page-specific components
+
+lib/utils.ts             Shared frontend utilities
+
+PRODUCT.md               Durable product decisions
+DESIGN.md                Durable design-system decisions
+AGENTS.md                Contributor/agent conventions for this repo
+LICENSE                  MIT license
 ```
 
-## Stack
+## Roadmap
 
-- **Frontend (marketing):** Next.js 14, TypeScript, Tailwind CSS, shadcn-style `components/ui`, self-hosted Space Grotesk / Inter / JetBrains Mono.
-- **Frontend (tool):** vanilla HTML/CSS/JS, no build step, no framework.
-- **Backend:** FastAPI, served with Uvicorn.
-- **Model provider:** OpenAI API (`openai/gpt-5-mini`). OpenRouter was used only for stress-testing during development.
-- **Speech-to-text & diarization:** [AssemblyAI](https://www.assemblyai.com/).
+Explicitly deferred, not forgotten:
 
-## Status
+- **Chunked / map-reduce summarization for long transcripts.** Recap generation is currently skipped (returns `recap: null`) above roughly a 6,000-token transcript; splitting and merging long transcripts is a documented but unbuilt Phase 2 feature.
+- **Cross-meeting diffing.** Comparing this meeting's state against a previous one on the same topic.
+- **Recap for the upload flow.** `/api/analyze-events` (the recording-upload path) currently returns `analysis` only, no `recap` — narrowing that gap is planned.
 
-Alpha. The core analysis pipeline (transcript and recording, both paths) is functional and tested. There is no deployment config yet, and GitHub Pages (or any static host) can only serve the Next.js marketing page — `main.py` needs a real Python host (Render, Railway, Fly.io, etc.) to actually run.
+## License
+
+MIT — see [LICENSE](LICENSE).
+
+## Acknowledgments
+
+Thanks to **Shahriyar**, Dhaka Codex Ambassador, for organizing Astra Commons: Dhaka and creating the space where this project was built.

@@ -13,7 +13,9 @@
             --bg: #0A0A0C;
             --surface: #131316;
             --surface-hover: #18181C;
+            --surface-raised: #1C1C21;
             --border: #232326;
+            --border-subtle: #1A1A1D;
             --border-hover: #2E2E32;
             --text-primary: #F2F2F3;
             --text-secondary: #8B8B90;
@@ -28,8 +30,13 @@
             --radius-sm: 6px;
             --radius-md: 10px;
             --radius-lg: 14px;
+            --radius-xl: 20px;
             --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+            --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
             --duration: 180ms;
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.4);
+            --shadow-md: 0 4px 16px -4px rgba(0,0,0,0.5), 0 1px 2px rgba(0,0,0,0.3);
+            --shadow-lg: 0 16px 40px -12px rgba(0,0,0,0.6), 0 2px 8px rgba(0,0,0,0.35);
         }
 
         *, *::before, *::after { box-sizing: border-box; }
@@ -90,12 +97,7 @@
         }
         label .hint { color: var(--text-tertiary); font-weight: 400; }
 
-        .field-label-row {
-            display: flex; align-items: center; justify-content: space-between;
-            margin-bottom: 0.5rem;
-        }
-        .field-label-row label { margin-bottom: 0; }
-        .demo-btn {
+        .toolbar-btn {
             font-family: var(--font-ui); font-size: 0.6875rem; font-weight: 500;
             color: var(--text-secondary); background: none;
             border: 1px solid var(--border); border-radius: var(--radius-sm);
@@ -104,7 +106,7 @@
                         color var(--duration) var(--ease-out),
                         border-color var(--duration) var(--ease-out);
         }
-        .demo-btn:hover {
+        .toolbar-btn:hover {
             background: var(--surface); color: var(--text-primary);
             border-color: var(--border-hover);
         }
@@ -284,23 +286,183 @@
 
         .stat-row {
             display: flex; align-items: center; justify-content: center;
-            gap: 0.125rem; flex-wrap: wrap; margin-bottom: 2rem;
-            font-family: var(--font-mono); font-size: 0.75rem;
-            color: var(--text-secondary); letter-spacing: 0.01em;
+            gap: 0.5rem; flex-wrap: wrap; margin-bottom: 2.25rem;
         }
-        .stat-row .stat-item { display: flex; align-items: center; gap: 0.375rem; }
+        .stat-row .stat-item {
+            display: flex; align-items: center; gap: 0.4375rem;
+            font-family: var(--font-ui); font-size: 0.75rem; font-weight: 500;
+            color: var(--text-secondary); letter-spacing: -0.005em;
+            background: var(--surface); border: 1px solid var(--border-subtle);
+            border-radius: 999px; padding: 0.3125rem 0.75rem 0.3125rem 0.625rem;
+        }
         .stat-row .stat-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
-        .stat-row .stat-sep { margin: 0 0.5rem; color: var(--text-tertiary); }
+        .stat-row .stat-item strong { color: var(--text-primary); font-weight: 600; }
+        .stat-row .stat-sep { display: none; }
 
         .results-toolbar {
-            display: flex; justify-content: flex-end;
-            margin: -1.25rem 0 1rem;
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 1rem; margin: -1.5rem 0 1.75rem; flex-wrap: wrap;
+        }
+
+        .result-tabs {
+            position: relative; display: inline-flex; gap: 0; padding: 0.1875rem;
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+        }
+        .result-tab {
+            position: relative; z-index: 1;
+            padding: 0.375rem 0.875rem; font-family: var(--font-ui);
+            font-size: 0.75rem; font-weight: 500; color: var(--text-secondary);
+            background: none; border: none; border-radius: calc(var(--radius-md) - 3px);
+            cursor: pointer; transition: color var(--duration) var(--ease-out);
+        }
+        .result-tab:hover { color: var(--text-primary); }
+        .result-tab.active { color: var(--text-primary); }
+        .result-tab:focus-visible { outline: 2px solid var(--status-committed); outline-offset: 2px; }
+
+        .result-tab-indicator {
+            position: absolute; top: 0.1875rem; bottom: 0.1875rem;
+            left: 0.1875rem; right: 0.1875rem;
+            border-radius: calc(var(--radius-md) - 3px);
+            background: var(--surface-raised); box-shadow: var(--shadow-sm);
+            clip-path: inset(0 100% 0 0 round calc(var(--radius-md) - 3px));
+            transition: clip-path 320ms var(--ease-spring);
+            pointer-events: none;
+        }
+
+        /* ── Recap tab — a quiet, readable feed; the timeline rail is the one
+           structural motif borrowed across every output view ── */
+        .recap-panel { max-width: 680px; margin: 0 auto; }
+
+        .recap-overview {
+            font-size: 1.125rem; font-weight: 450; line-height: 1.7;
+            letter-spacing: -0.006em;
+            color: var(--text-primary); margin: 0 0 2.5rem;
+        }
+
+        .recap-beats { list-style: none; margin: 0; padding: 0; position: relative; }
+        .recap-beats::before {
+            content: ''; position: absolute; left: 3px; top: 0.9rem; bottom: 1.4rem;
+            width: 1px; background: linear-gradient(var(--border), var(--border) 85%, transparent);
+        }
+
+        .recap-beat {
+            position: relative; border-radius: var(--radius-md);
+            padding: 0.6875rem 0.75rem 0.6875rem 1.625rem;
+            margin: 0 -0.75rem 0.125rem; cursor: pointer;
+            transition: background var(--duration) var(--ease-out);
+        }
+        .recap-beat:last-child { margin-bottom: 0; }
+        .recap-beat:hover { background: var(--surface); }
+
+        .recap-beat-dot {
+            position: absolute; left: 0.75rem; top: 1.05rem;
+            width: 7px; height: 7px; border-radius: 50%;
+            box-shadow: 0 0 0 3px var(--bg); flex-shrink: 0;
+        }
+        .recap-beat-header { display: flex; align-items: flex-start; gap: 0.5rem; }
+        .recap-beat-text {
+            flex: 1; font-size: 0.875rem; line-height: 1.65; color: var(--text-primary);
+        }
+        .recap-beat-chevron {
+            flex-shrink: 0; margin-top: 0.2rem; color: var(--text-tertiary); opacity: 0;
+            transition: transform 220ms var(--ease-out), opacity var(--duration) var(--ease-out);
+        }
+        .recap-beat:hover .recap-beat-chevron { opacity: 1; }
+        .recap-beat.expanded .recap-beat-chevron { opacity: 1; transform: rotate(90deg); }
+
+        .recap-beat-evidence {
+            display: none; margin-top: 0.75rem;
+            animation: fade-up 0.25s var(--ease-out) both;
+        }
+        .recap-beat.expanded .recap-beat-evidence { display: block; }
+
+        .recap-empty {
+            font-size: 0.8125rem; color: var(--text-secondary); line-height: 1.6;
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: var(--radius-lg); padding: 1rem 1.25rem;
+        }
+
+        /* ── Mindmap tab — radial layout of the same meeting_state data.
+           HTML pill nodes over an SVG line layer, positioned by percentage
+           so the whole composition scales without any resize recalculation;
+           deliberately shares the node-card interaction language from the
+           Timeline tab (same hover lift, same corner wash) so the two views
+           read as one system, not two different UI kits. ── */
+        .mindmap-panel { display: flex; justify-content: center; padding: 1rem 0 2rem; }
+        .mindmap-canvas {
+            position: relative; width: 100%; max-width: 680px; aspect-ratio: 1 / 1;
+        }
+        .mindmap-lines {
+            position: absolute; inset: 0; width: 100%; height: 100%;
+            overflow: visible; pointer-events: none;
+        }
+        .mindmap-spoke {
+            fill: none; stroke: var(--border-subtle); stroke-width: 1;
+            vector-effect: non-scaling-stroke;
+        }
+        .mindmap-dep-line {
+            fill: none; stroke: var(--border-hover); stroke-width: 1.25;
+            stroke-dasharray: 1 4; stroke-linecap: round;
+            vector-effect: non-scaling-stroke;
+        }
+
+        .mindmap-center {
+            position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+            display: flex; align-items: center; justify-content: center;
+            width: 15%; aspect-ratio: 1 / 1; min-width: 76px; border-radius: 50%;
+            background: var(--surface-raised); border: 1px solid var(--border-hover);
+            box-shadow: var(--shadow-md);
+            font-family: var(--font-ui); font-size: 0.8125rem; font-weight: 600;
+            color: var(--text-primary); text-align: center; padding: 0.5rem;
+        }
+
+        .mindmap-node {
+            position: absolute; transform: translate(-50%, -50%);
+            width: 148px; max-width: 34%;
+            background: var(--surface); background-repeat: no-repeat;
+            background-position: top right; background-size: 90px 60px;
+            border: 1px solid var(--border); border-radius: var(--radius-lg);
+            padding: 0.625rem 0.75rem; cursor: pointer; text-align: left;
+            box-shadow: var(--shadow-sm);
+            transition: border-color var(--duration) var(--ease-out),
+                        box-shadow 220ms var(--ease-out),
+                        background-color var(--duration) var(--ease-out),
+                        transform 220ms var(--ease-out);
+        }
+        .mindmap-node:hover, .mindmap-node:focus-visible {
+            background-color: var(--surface-raised); border-color: var(--border-hover);
+            box-shadow: var(--shadow-md); z-index: 2;
+            transform: translate(-50%, -50%) translateY(-3px);
+        }
+        .mindmap-node:focus-visible { outline: 2px solid var(--status-committed); outline-offset: 2px; }
+
+        .mindmap-node[data-status="DECIDED"]   { background-image: radial-gradient(circle at 100% 0%, rgba(52,211,153,0.14), transparent 70%); }
+        .mindmap-node[data-status="COMMITTED"] { background-image: radial-gradient(circle at 100% 0%, rgba(96,165,250,0.14), transparent 70%); }
+        .mindmap-node[data-status="DISCUSSED"] { background-image: radial-gradient(circle at 100% 0%, rgba(251,191,36,0.14), transparent 70%); }
+        .mindmap-node[data-status="CONFLICT"]  { background-image: radial-gradient(circle at 100% 0%, rgba(248,113,113,0.18), transparent 70%); border-color: rgba(248,113,113,0.28); }
+        .mindmap-node[data-status="UNKNOWN"]   { background-image: radial-gradient(circle at 100% 0%, rgba(156,163,175,0.1), transparent 70%); }
+
+        .mindmap-node-status-row { display: flex; align-items: center; gap: 0.375rem; margin-bottom: 0.3125rem; }
+        .mindmap-node-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+        .mindmap-node-status-row span {
+            font-size: 0.5625rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
+        }
+        .mindmap-node-topic {
+            font-size: 0.75rem; font-weight: 600; line-height: 1.4; color: var(--text-primary);
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+        }
+
+        @media (max-width: 480px) {
+            .mindmap-node { width: 124px; padding: 0.5rem 0.625rem; }
+            .mindmap-node-topic { font-size: 0.6875rem; }
+            .mindmap-center { font-size: 0.6875rem; min-width: 60px; }
         }
 
         .results-layout {
             display: grid;
-            grid-template-columns: 1fr 280px;
-            gap: 1.5rem;
+            grid-template-columns: 1fr 300px;
+            gap: 1.75rem;
             align-items: start;
         }
 
@@ -317,39 +479,59 @@
         }
 
         /* ── Action board ── */
-        .action-board { margin-top: 1.5rem; }
+        .action-board { margin-top: 2rem; }
         .action-board-title {
-            font-size: 0.5625rem; font-weight: 600;
+            font-size: 0.625rem; font-weight: 600;
             text-transform: uppercase; letter-spacing: 0.08em;
-            color: var(--text-tertiary); margin-bottom: 0.75rem;
-            padding-bottom: 0.375rem;
-            border-bottom: 1px solid var(--border);
+            color: var(--text-tertiary); margin-bottom: 0.875rem;
+            padding-bottom: 0.625rem;
+            border-bottom: 1px solid var(--border-subtle);
         }
         .action-board-row {
             display: flex; gap: 0.75rem; overflow-x: auto; padding-bottom: 0.25rem;
         }
         .action-card {
-            flex: 0 0 auto; width: 220px;
+            position: relative; flex: 0 0 auto; width: 224px;
             background: var(--surface); border: 1px solid var(--border);
-            border-left: 3px solid var(--status-committed);
-            border-radius: var(--radius-md); padding: 0.75rem 0.875rem;
+            border-radius: var(--radius-lg); padding: 0.875rem;
+            box-shadow: var(--shadow-sm);
+            transition: border-color var(--duration) var(--ease-out),
+                        box-shadow 220ms var(--ease-out), transform 220ms var(--ease-out);
+        }
+        .action-card:hover {
+            border-color: var(--border-hover); box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
+        }
+        .action-card-top {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 0.625rem;
         }
         .action-owner {
+            display: flex; align-items: center; gap: 0.5rem;
             font-size: 0.75rem; font-weight: 600; color: var(--text-primary);
-            margin-bottom: 0.25rem;
+        }
+        .action-owner-avatar {
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%;
+            background: var(--surface-raised); border: 1px solid var(--border);
+            font-family: var(--font-ui); font-size: 0.5625rem; font-weight: 700;
+            color: var(--text-secondary); letter-spacing: 0;
         }
         .action-task {
-            font-size: 0.75rem; color: var(--text-secondary); line-height: 1.4;
-            margin-bottom: 0.5rem;
+            font-size: 0.75rem; color: var(--text-secondary); line-height: 1.5;
+            margin-bottom: 0.75rem;
             display: -webkit-box; -webkit-line-clamp: 2;
             -webkit-box-orient: vertical; overflow: hidden;
         }
         .action-deadline {
+            display: flex; align-items: center; gap: 0.3125rem;
             font-family: var(--font-mono); font-size: 0.6875rem;
-            color: var(--text-tertiary); margin-bottom: 0.5rem;
+            color: var(--text-tertiary);
         }
+        .action-deadline svg { flex-shrink: 0; opacity: 0.7; }
         .action-deadline.no-deadline {
-            color: var(--status-discussed); opacity: 0.75; font-style: italic;
+            color: var(--status-discussed); opacity: 0.85; font-style: italic;
+            font-family: var(--font-ui);
         }
         .action-confidence {
             display: inline-flex; align-items: center;
@@ -366,98 +548,105 @@
             background: rgba(96, 165, 250, 0.14);
         }
         .action-board-empty {
-            font-size: 0.6875rem; color: var(--text-tertiary); font-style: italic;
+            font-size: 0.75rem; color: var(--text-tertiary);
         }
 
         /* ── Insights sidebar ── */
         .insights-sidebar {
             position: sticky; top: 2rem;
-            display: flex; flex-direction: column; gap: 1.5rem;
+            display: flex; flex-direction: column; gap: 1.75rem;
             max-height: calc(100vh - 4rem); overflow-y: auto;
             background: var(--surface); border: 1px solid var(--border);
-            border-radius: var(--radius-md); padding: 1rem;
+            border-radius: var(--radius-lg); padding: 1.25rem;
+            box-shadow: var(--shadow-sm);
         }
 
         .insight-group {}
 
         .insight-group-title {
-            font-size: 0.5625rem; font-weight: 600;
+            font-size: 0.625rem; font-weight: 600;
             text-transform: uppercase; letter-spacing: 0.08em;
-            color: var(--text-tertiary); margin-bottom: 0.625rem;
-            padding-bottom: 0.375rem;
-            border-bottom: 1px solid var(--border);
+            color: var(--text-tertiary); margin-bottom: 0.75rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border-subtle);
         }
 
-        .insight-list { list-style: none; margin: 0; padding: 0; }
+        .insight-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.375rem; }
 
         .insight-item {
-            padding: 0.5rem 0.625rem;
-            border-radius: var(--radius-sm);
+            padding: 0.5625rem 0.625rem;
+            border-radius: var(--radius-md);
             cursor: pointer;
             transition: background var(--duration) var(--ease-out);
-            margin-bottom: 0.25rem;
         }
-        .insight-item:last-child { margin-bottom: 0; }
-        .insight-item:hover { background: var(--surface); }
+        .insight-item:hover { background: var(--surface-raised); }
+        .insight-item:focus-visible { outline: 2px solid var(--status-committed); outline-offset: 1px; }
 
         .insight-item-header {
-            display: flex; align-items: center; gap: 0.375rem;
+            display: flex; align-items: center; gap: 0.4375rem;
         }
-        .insight-dot {
-            width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0;
-        }
+        .insight-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
         .insight-topic {
-            font-size: 0.6875rem; font-weight: 600;
-            color: var(--text-primary); line-height: 1.35;
+            font-size: 0.75rem; font-weight: 600;
+            color: var(--text-primary); line-height: 1.4;
         }
         .insight-desc {
-            font-size: 0.625rem; color: var(--text-tertiary);
-            line-height: 1.45; margin-top: 0.2rem;
-            padding-left: calc(5px + 0.375rem);
+            font-size: 0.6875rem; color: var(--text-tertiary);
+            line-height: 1.5; margin-top: 0.25rem;
+            padding-left: calc(5px + 0.4375rem);
         }
 
-        /* Risk items */
+        /* Risk items — Notion-style callout: a quiet tinted card, no left rule */
+        .risk-item {
+            cursor: default;
+            background: var(--bg); border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md); padding: 0.75rem 0.8125rem;
+        }
+        .risk-item:hover { background: var(--bg); }
+        .risk-header {
+            display: flex; align-items: center; gap: 0.375rem;
+            margin-bottom: 0.5rem;
+        }
+        .risk-header svg { color: var(--status-discussed); flex-shrink: 0; }
+        .risk-header span {
+            font-size: 0.625rem; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 0.05em; color: var(--status-discussed);
+        }
         .risk-statement {
-            font-family: var(--font-mono); font-size: 0.625rem;
-            color: var(--text-secondary); line-height: 1.55;
-            padding: 0.375rem 0.5rem;
-            background: var(--surface); border-radius: var(--radius-sm);
-            margin-bottom: 0.25rem;
+            font-size: 0.75rem; color: var(--text-primary);
+            line-height: 1.55; margin-bottom: 0.625rem;
         }
         .risk-reason {
-            font-size: 0.625rem; color: var(--text-tertiary);
-            line-height: 1.45; margin-bottom: 0.375rem;
-        }
-        .risk-followup-label {
-            font-size: 0.5625rem; font-weight: 500;
-            text-transform: uppercase; letter-spacing: 0.04em;
-            color: var(--status-discussed); margin-bottom: 0.125rem;
+            font-size: 0.6875rem; color: var(--text-tertiary);
+            line-height: 1.5; margin-bottom: 0.625rem;
         }
         .risk-followup {
-            font-size: 0.625rem; color: var(--text-secondary);
-            line-height: 1.45; font-style: italic;
+            display: flex; gap: 0.4375rem; align-items: flex-start;
+            padding-top: 0.625rem; border-top: 1px solid var(--border-subtle);
+            font-size: 0.6875rem; color: var(--text-secondary); line-height: 1.5;
         }
+        .risk-followup svg { flex-shrink: 0; margin-top: 0.15rem; color: var(--text-tertiary); }
 
         .insight-no-match {
-            font-size: 0.5625rem; color: var(--text-tertiary);
-            font-style: italic; padding-left: calc(5px + 0.375rem);
-            margin-top: 0.125rem;
+            font-size: 0.625rem; color: var(--text-tertiary);
+            font-style: italic; padding-left: calc(5px + 0.4375rem);
+            margin-top: 0.1875rem;
         }
 
         /* Positive empty states */
         .insight-empty {
-            font-size: 0.6875rem; color: var(--status-decided);
-            line-height: 1.45; padding: 0.375rem 0.625rem 0.125rem;
+            display: flex; align-items: center; gap: 0.5rem;
+            font-size: 0.75rem; color: var(--status-decided);
+            line-height: 1.5; padding: 0.25rem;
         }
         .graph-empty-note {
-            display: inline-flex; align-items: center; gap: 0.375rem;
-            font-size: 0.6875rem; color: var(--status-decided);
-            margin-bottom: 0.75rem;
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            font-size: 0.75rem; color: var(--status-decided);
+            background: rgba(52,211,153,0.08); border: 1px solid rgba(52,211,153,0.18);
+            border-radius: var(--radius-md); padding: 0.5rem 0.75rem;
+            margin-bottom: 1rem;
         }
-        .graph-empty-note .stat-dot {
-            width: 6px; height: 6px; border-radius: 50%;
-            background: var(--status-decided); flex-shrink: 0;
-        }
+        .graph-empty-note svg { flex-shrink: 0; }
 
         /* Highlight flash on node card */
         @keyframes card-flash {
@@ -477,119 +666,151 @@
             animation: node-fade-in 0.35s var(--ease-out) both;
         }
 
-        /* Node cards */
+        /* Node cards — status reads through a soft corner wash + badge, never
+           a colored stripe on the edge. */
         .node-card {
-            position: absolute; width: 180px; background: var(--surface);
-            border: 1px solid var(--border); border-left: 3px solid var(--border);
-            border-radius: var(--radius-md); padding: 0.75rem 0.75rem 0.75rem 0.875rem;
+            position: absolute; width: 184px; background: var(--surface);
+            background-repeat: no-repeat; background-position: top right;
+            background-size: 100px 72px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg); padding: 0.875rem 0.9375rem;
             cursor: pointer; user-select: none;
+            box-shadow: var(--shadow-sm);
             transition: border-color var(--duration) var(--ease-out),
-                        box-shadow var(--duration) var(--ease-out),
-                        background var(--duration) var(--ease-out);
+                        box-shadow 220ms var(--ease-out),
+                        background-color var(--duration) var(--ease-out),
+                        transform 220ms var(--ease-out);
         }
-        .node-card:hover { background: var(--surface-hover); border-color: var(--border-hover); }
-        .node-card.active { background: var(--surface-hover); }
+        .node-card:hover {
+            background-color: var(--surface-raised); border-color: var(--border-hover);
+            box-shadow: var(--shadow-md); transform: translateY(-2px);
+        }
+        .node-card.active { background-color: var(--surface-raised); border-color: var(--border-hover); }
+        .node-card:focus-visible { outline: 2px solid var(--status-committed); outline-offset: 2px; }
 
-        .node-card[data-status="DECIDED"]   { border-left-color: var(--status-decided); }
-        .node-card[data-status="COMMITTED"] { border-left-color: var(--status-committed); }
-        .node-card[data-status="DISCUSSED"] { border-left-color: var(--status-discussed); }
-        .node-card[data-status="CONFLICT"]  { border-left-color: var(--status-conflict); }
-        .node-card[data-status="UNKNOWN"]   { border-left-color: var(--status-unknown); }
+        .node-card[data-status="DECIDED"]   { background-image: radial-gradient(circle at 100% 0%, rgba(52,211,153,0.14), transparent 70%); }
+        .node-card[data-status="COMMITTED"] { background-image: radial-gradient(circle at 100% 0%, rgba(96,165,250,0.14), transparent 70%); }
+        .node-card[data-status="DISCUSSED"] { background-image: radial-gradient(circle at 100% 0%, rgba(251,191,36,0.14), transparent 70%); }
+        .node-card[data-status="CONFLICT"]  { background-image: radial-gradient(circle at 100% 0%, rgba(248,113,113,0.18), transparent 70%); }
+        .node-card[data-status="UNKNOWN"]   { background-image: radial-gradient(circle at 100% 0%, rgba(156,163,175,0.1), transparent 70%); }
 
         .node-card[data-status="CONFLICT"] {
-            box-shadow: 0 0 0 1px rgba(248,113,113,0.25), 0 0 12px rgba(248,113,113,0.1);
+            border-color: rgba(248,113,113,0.28);
         }
         .node-card[data-status="CONFLICT"]:hover {
-            box-shadow: 0 0 0 1px rgba(248,113,113,0.4), 0 0 18px rgba(248,113,113,0.15);
+            border-color: rgba(248,113,113,0.45);
+            box-shadow: var(--shadow-md), 0 0 0 1px rgba(248,113,113,0.2);
         }
 
         .node-topic {
-            font-size: 0.8125rem; font-weight: 600; line-height: 1.35;
-            margin-bottom: 0.375rem; letter-spacing: -0.01em;
+            font-size: 0.8125rem; font-weight: 600; line-height: 1.4;
+            margin-bottom: 0.5rem; letter-spacing: -0.008em;
             display: -webkit-box; -webkit-line-clamp: 2;
             -webkit-box-orient: vertical; overflow: hidden;
         }
         .node-status {
-            display: inline-flex; align-items: center; gap: 0.3rem;
-            font-size: 0.625rem; font-weight: 500;
-            text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem;
+            display: inline-flex; align-items: center; gap: 0.3125rem;
+            font-size: 0.625rem; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.375rem;
         }
         .node-status-dot { width: 5px; height: 5px; border-radius: 50%; }
         .node-meta {
-            font-size: 0.6875rem; color: var(--text-tertiary); line-height: 1.4;
+            font-size: 0.6875rem; color: var(--text-tertiary); line-height: 1.45;
+            margin-top: 0.375rem;
             display: -webkit-box; -webkit-line-clamp: 2;
             -webkit-box-orient: vertical; overflow: hidden;
         }
 
         .dep-line {
-            fill: none; stroke: var(--border-hover); stroke-width: 1;
-            stroke-dasharray: 4 3; pointer-events: stroke; cursor: help;
+            fill: none; stroke: var(--border-hover); stroke-width: 1.25;
+            stroke-dasharray: 1 4; stroke-linecap: round;
+            pointer-events: stroke; cursor: help;
+            transition: stroke var(--duration) var(--ease-out);
         }
-        .dep-line:hover { stroke: var(--text-secondary); stroke-width: 1.5; }
+        .dep-line:hover { stroke: var(--status-committed); stroke-width: 1.5; }
 
         /* ── Side panel ── */
         .side-panel-overlay {
-            position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+            position: fixed; inset: 0; background: rgba(6,6,8,0.55);
+            backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
             z-index: 90; opacity: 0; pointer-events: none;
             transition: opacity 0.25s ease;
         }
         .side-panel-overlay.open { opacity: 1; pointer-events: auto; }
 
         .side-panel {
-            position: fixed; top: 0; right: 0; width: 400px; max-width: 90vw;
+            position: fixed; top: 0; right: 0; width: 420px; max-width: 90vw;
             height: 100vh; background: var(--surface);
             border-left: 1px solid var(--border); z-index: 100;
-            transform: translateX(100%); transition: transform 0.3s var(--ease-out);
+            box-shadow: var(--shadow-lg);
+            transform: translateX(100%); transition: transform 0.35s var(--ease-out);
             overflow-y: auto; display: flex; flex-direction: column;
         }
         .side-panel.open { transform: translateX(0); }
 
         .panel-header {
+            position: sticky; top: 0; z-index: 1;
             display: flex; align-items: flex-start; justify-content: space-between;
-            gap: 0.75rem; padding: 1.25rem 1.25rem 0; flex-shrink: 0;
+            gap: 0.75rem; padding: 1.5rem 1.5rem 1.25rem;
+            background: var(--surface); border-bottom: 1px solid var(--border-subtle);
+            flex-shrink: 0;
         }
-        .panel-title { font-size: 1rem; font-weight: 600; line-height: 1.3; letter-spacing: -0.015em; }
+        .panel-title { font-size: 1.125rem; font-weight: 600; line-height: 1.35; letter-spacing: -0.017em; }
         .panel-close {
-            flex-shrink: 0; width: 28px; height: 28px;
+            flex-shrink: 0; width: 30px; height: 30px; margin-top: 0.125rem;
             display: flex; align-items: center; justify-content: center;
             background: none; border: 1px solid var(--border);
-            border-radius: var(--radius-sm); color: var(--text-secondary);
-            cursor: pointer; transition: background var(--duration) var(--ease-out);
+            border-radius: 50%; color: var(--text-secondary);
+            cursor: pointer; transition: background var(--duration) var(--ease-out),
+                        border-color var(--duration) var(--ease-out), color var(--duration) var(--ease-out);
         }
-        .panel-close:hover { background: var(--surface-hover); }
+        .panel-close:hover { background: var(--surface-hover); border-color: var(--border-hover); color: var(--text-primary); }
+        .panel-close:focus-visible { outline: 2px solid var(--status-committed); outline-offset: 2px; }
 
-        .panel-body { padding: 1.25rem; flex: 1; }
-        .panel-section { margin-bottom: 1.25rem; }
+        .panel-body { padding: 1.5rem; flex: 1; }
+        .panel-section { margin-bottom: 1.5rem; }
         .panel-section:last-child { margin-bottom: 0; }
         .panel-section-label {
-            font-size: 0.6875rem; font-weight: 500; color: var(--text-tertiary);
-            text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;
+            font-size: 0.6875rem; font-weight: 600; color: var(--text-tertiary);
+            text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.625rem;
         }
-        .panel-reasoning { font-size: 0.8125rem; color: var(--text-secondary); line-height: 1.6; }
-        .panel-meta-row { display: flex; gap: 1rem; flex-wrap: wrap; }
-        .panel-meta-item { font-size: 0.75rem; color: var(--text-tertiary); }
-        .panel-meta-item strong { color: var(--text-secondary); font-weight: 500; }
+        .panel-reasoning { font-size: 0.8125rem; color: var(--text-secondary); line-height: 1.65; }
+        .panel-meta-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+        .panel-meta-item {
+            font-size: 0.75rem; color: var(--text-secondary);
+            background: var(--bg); border: 1px solid var(--border-subtle);
+            border-radius: 999px; padding: 0.25rem 0.625rem;
+        }
+        .panel-meta-item strong { color: var(--text-primary); font-weight: 600; }
 
         .evidence-block {
-            background: var(--bg); border: 1px solid var(--border);
-            border-radius: var(--radius-sm); padding: 0.625rem 0.75rem;
+            position: relative; background: var(--bg); border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md); padding: 0.75rem 0.8125rem;
             margin-bottom: 0.5rem; font-family: var(--font-mono);
-            font-size: 0.75rem; line-height: 1.6; color: var(--text-secondary);
+            font-size: 0.75rem; line-height: 1.65; color: var(--text-secondary);
         }
         .evidence-block:last-child { margin-bottom: 0; }
-        .evidence-speaker { color: var(--text-primary); font-weight: 500; margin-right: 0.25rem; }
-        .evidence-id { color: var(--text-tertiary); font-size: 0.625rem; float: right; margin-top: 0.125rem; }
+        .evidence-speaker { color: var(--text-primary); font-weight: 600; margin-right: 0.25rem; }
+        .evidence-id {
+            float: right; margin-left: 0.5rem;
+            color: var(--text-tertiary); font-size: 0.625rem; opacity: 0.7;
+        }
 
-        .conflict-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+        .conflict-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 0.625rem; }
         .conflict-side {
-            background: var(--bg); border: 1px solid var(--border);
-            border-radius: var(--radius-sm); padding: 0.625rem 0.75rem;
+            background: var(--bg); border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md); padding: 0.75rem 0.8125rem;
         }
         .conflict-side-label {
-            font-size: 0.625rem; font-weight: 500; text-transform: uppercase;
-            letter-spacing: 0.05em; color: var(--status-conflict); margin-bottom: 0.375rem;
+            display: flex; align-items: center; gap: 0.3125rem;
+            font-size: 0.625rem; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 0.05em; color: var(--status-conflict); margin-bottom: 0.5rem;
         }
-        .conflict-side-text { font-size: 0.75rem; color: var(--text-secondary); line-height: 1.5; }
+        .conflict-side-label::before {
+            content: ''; width: 5px; height: 5px; border-radius: 50%;
+            background: var(--status-conflict);
+        }
+        .conflict-side-text { font-size: 0.75rem; color: var(--text-secondary); line-height: 1.55; }
 
         /* ── Focus rings ── */
         textarea:focus-visible, input[type="text"]:focus-visible {
@@ -628,10 +849,7 @@
 
         <div id="mode-transcript-panel">
             <div class="field-group">
-                <div class="field-label-row">
-                    <label for="transcript">Transcript</label>
-                    <button type="button" id="demo-btn" class="demo-btn">Load demo</button>
-                </div>
+                <label for="transcript">Transcript</label>
                 <textarea
                     id="transcript"
                     placeholder="Alice: I think we should ship v2 next Monday.&#10;Bob: Agreed — let's lock the scope today.&#10;Carol: What about the billing migration?"
@@ -700,16 +918,32 @@
     <!-- ── Results Section ── -->
     <div id="results-section" class="section-wide hidden">
         <div id="stat-row" class="stat-row"></div>
+
         <div class="results-toolbar">
-            <button type="button" id="copy-summary-btn" class="demo-btn">Copy summary</button>
+            <div class="result-tabs" role="tablist">
+                <div id="result-tab-indicator" class="result-tab-indicator"></div>
+                <button type="button" id="tab-recap-btn" class="result-tab active" role="tab" aria-selected="true">Recap</button>
+                <button type="button" id="tab-timeline-btn" class="result-tab" role="tab" aria-selected="false">Timeline</button>
+                <button type="button" id="tab-mindmap-btn" class="result-tab" role="tab" aria-selected="false">Mindmap</button>
+            </div>
+            <button type="button" id="copy-summary-btn" class="toolbar-btn">Copy summary</button>
         </div>
-        <div class="results-layout">
+
+        <div id="recap-panel" class="recap-panel"></div>
+
+        <div id="timeline-panel" class="results-layout hidden">
             <div class="graph-container">
                 <div id="graph-empty-note" class="graph-empty-note hidden"></div>
                 <div id="graph-viewport" class="graph-viewport"></div>
                 <div id="action-board" class="action-board"></div>
             </div>
             <aside id="insights-sidebar" class="insights-sidebar"></aside>
+        </div>
+
+        <div id="mindmap-panel" class="mindmap-panel hidden">
+            <div id="mindmap-canvas" class="mindmap-canvas">
+                <svg id="mindmap-svg" class="mindmap-lines" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>
+            </div>
         </div>
     </div>
 
@@ -739,6 +973,15 @@
         const retryBtn = document.getElementById('retry-btn');
         const resultsSection = document.getElementById('results-section');
         const statRow = document.getElementById('stat-row');
+        const tabRecapBtn = document.getElementById('tab-recap-btn');
+        const tabTimelineBtn = document.getElementById('tab-timeline-btn');
+        const tabMindmapBtn = document.getElementById('tab-mindmap-btn');
+        const resultTabIndicator = document.getElementById('result-tab-indicator');
+        const recapPanel = document.getElementById('recap-panel');
+        const timelinePanel = document.getElementById('timeline-panel');
+        const mindmapPanel = document.getElementById('mindmap-panel');
+        const mindmapCanvas = document.getElementById('mindmap-canvas');
+        const mindmapSvg = document.getElementById('mindmap-svg');
         const graphEmptyNote = document.getElementById('graph-empty-note');
         const graphViewport = document.getElementById('graph-viewport');
         const sidePanel = document.getElementById('side-panel');
@@ -746,7 +989,6 @@
         const panelTitle = document.getElementById('panel-title');
         const panelBody = document.getElementById('panel-body');
         const panelCloseBtn = document.getElementById('panel-close');
-        const demoBtn = document.getElementById('demo-btn');
         const copySummaryBtn = document.getElementById('copy-summary-btn');
         const modeTranscriptBtn = document.getElementById('mode-transcript-btn');
         const modeUploadBtn = document.getElementById('mode-upload-btn');
@@ -824,49 +1066,6 @@
             dropzone.classList.remove('dragover');
             const file = e.dataTransfer.files && e.dataTransfer.files[0];
             if (file) setSelectedFile(file);
-        });
-
-        // ── Demo transcript ──
-        const DEMO_TRANSCRIPT = `Nadia: Okay let's do this quick, I have another call in 20. Where are we on launch?
-Rahim: I mean... the API is mostly there. I still need to wire up the webhook retries and test the rate limiting stuff. I'll try to have it done by... I don't know, end of week maybe? Don't hold me to that.
-Nadia: End of week as in Friday?
-Rahim: Yeah probably. Or Monday if something breaks.
-Nadia: We need to launch Friday, marketing already teased it on social.
-Farhan: Wait, I thought we agreed Monday last week so QA has the weekend.
-Nadia: No we said Friday, that's why I told the investors Friday.
-Farhan: I have it in my notes as Monday, I already told the hosting provider Monday for the cutover window.
-Nadia: Well it's Friday now, that's final.
-Farhan: Okay uh, sure, I'll figure it out.
-Nadia: Great. Now — payments. Are we still doing Stripe?
-Rahim: Stripe's the plan yeah, I already have the test keys wired in.
-Farhan: Hold on, I talked to the Bangladesh team yesterday and they said most of our users don't have international cards, we basically have to support bKash or we lose half the signups.
-Nadia: We can't switch payment providers a week before launch, that's insane.
-Farhan: I'm just saying bKash is what actually works here, Stripe cards barely clear for local banks.
-Nadia: Let's not relitigate this, we're going with Stripe.
-Farhan: Fine, but someone should tell the Bangladesh team that.
-Nadia: That's not my job right now, Farhan can you just make sure deployment is sorted?
-Farhan: Yeah yeah, I'll handle the deployment stuff.
-Nadia: Great, thank you.
-Rahim: When you say deployment stuff, do you mean the actual server cutover or also the CI pipeline and the rollback plan? Because those are pretty different.
-Farhan: I mean... deployment. I'll handle it.
-Rahim: Okay, but I can't actually deploy anything until the API is stable, so whatever Farhan's doing has to wait on me finishing.
-Farhan: Right, yeah, that's fine, just let me know when you're done.
-Nadia: Okay, what about marketing? Who's driving the launch post and the email blast?
-Rahim: Not me, I've got zero bandwidth this week.
-Farhan: I assumed marketing was already handling their own thing.
-Nadia: I think Priya was going to do it but she's out this week.
-Farhan: So... nobody?
-Nadia: I'll figure it out later, let's move on.
-Rahim: Also just to be clear, my API timeline is soft — I said end of week but honestly if the retry logic gets ugly it could slip. I don't want that to be the thing everyone plans around.
-Nadia: Noted. Okay I gotta jump, let's regroup tomorrow.`;
-
-        demoBtn.addEventListener('click', () => {
-            setMode('transcript');
-            transcript.value = DEMO_TRANSCRIPT;
-            titleInput.value = 'Launch Sync';
-            participantsInput.value = 'Rahim, Nadia, Farhan';
-            analyzeBtn.disabled = false;
-            transcript.focus();
         });
 
         // ── Loading animation ──
@@ -986,22 +1185,21 @@ Nadia: Noted. Okay I gotta jump, let's regroup tomorrow.`;
                 { n: summary_stats.conflicts,   label: 'conflict',   color: STATUS_COLORS.CONFLICT },
                 { n: summary_stats.gaps,        label: 'gap',        color: STATUS_COLORS.UNKNOWN },
             ];
-            statRow.innerHTML = statItems.map((s, i) => {
-                const sep = i < statItems.length - 1 ? '<span class="stat-sep">\u00b7</span>' : '';
+            statRow.innerHTML = statItems.map((s) => {
                 const pl = s.n !== 1 ? 's' : '';
-                return '<span class="stat-item"><span class="stat-dot" style="background:' + s.color + '"></span>' + s.n + ' ' + s.label + pl + '</span>' + sep;
+                return '<span class="stat-item"><span class="stat-dot" style="background:' + s.color + ';color:' + s.color + '"></span><strong>' + s.n + '</strong> ' + s.label + pl + '</span>';
             }).join('');
 
             // ── Conflicts empty state ──
             if (!conflicts || conflicts.length === 0) {
-                graphEmptyNote.innerHTML = '<span class="stat-dot"></span>No conflicts detected — everyone’s aligned.';
+                graphEmptyNote.innerHTML = CHECK_ICON + '<span>No conflicts detected — everyone’s aligned.</span>';
                 graphEmptyNote.classList.remove('hidden');
             } else {
                 graphEmptyNote.classList.add('hidden');
             }
 
             // ── Node cards ──
-            const CARD_W = 180, CARD_GAP = 24, CARD_TOP = 16, CARD_H_EST = 110;
+            const CARD_W = 184, CARD_GAP = 28, CARD_TOP = 16, CARD_H_EST = 112;
             graphViewport.innerHTML = '';
             const nodePositions = {};
 
@@ -1016,6 +1214,9 @@ Nadia: Noted. Okay I gotta jump, let's regroup tomorrow.`;
                 card.style.animationDelay = (i * 50) + 'ms';
                 card.setAttribute('data-status', status);
                 card.setAttribute('data-topic', item.topic);
+                card.setAttribute('tabindex', '0');
+                card.setAttribute('role', 'button');
+                card.setAttribute('aria-label', (STATUS_LABELS[status] || status) + ': ' + item.topic);
                 card.style.left = x + 'px';
                 card.style.top = y + 'px';
 
@@ -1035,6 +1236,12 @@ Nadia: Noted. Okay I gotta jump, let's regroup tomorrow.`;
                     '</div>' + metaHtml;
 
                 card.addEventListener('click', () => openPanel(item, eventMap, conflictMap));
+                card.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        openPanel(item, eventMap, conflictMap);
+                    }
+                });
                 graphViewport.appendChild(card);
                 nodePositions[item.topic] = { x, y, w: CARD_W, h: CARD_H_EST };
             });
@@ -1084,9 +1291,27 @@ Nadia: Noted. Okay I gotta jump, let's regroup tomorrow.`;
 
             // ── Action board ──
             renderActionBoard(meeting_state);
+
+            // ── Recap tab — rendered from this same response, no re-fetch ──
+            renderRecap(data.recap, meeting_state, eventMap);
+
+            // ── Mindmap tab — rendered from this same response, no re-fetch ──
+            renderMindmap(meeting_state, dependencies, eventMap, conflictMap);
+
+            setResultTab('recap');
         }
 
         // ── Action board ──
+        function ownerInitials(owner) {
+            if (!owner) return '?';
+            const parts = owner.trim().split(/\s+/).filter(Boolean);
+            if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+            return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+        }
+
+        const CLOCK_ICON = '<svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.25"/><path d="M8 4.75V8l2.25 1.5"/></svg>';
+        const CHECK_ICON = '<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5L6.5 12L13 4.5"/></svg>';
+
         function renderActionBoard(meetingState) {
             const board = document.getElementById('action-board');
             const committed = meetingState.filter(item => item.status === 'COMMITTED');
@@ -1103,9 +1328,10 @@ Nadia: Noted. Okay I gotta jump, let's regroup tomorrow.`;
                 const taskParts = [item.topic];
                 if (item.value && item.value !== item.topic) taskParts.push(item.value);
                 const task = taskParts.join(' — ');
+                const owner = item.owner || 'Unassigned';
 
                 const deadlineHtml = item.deadline
-                    ? '<div class="action-deadline">⇢ ' + esc(item.deadline) + '</div>'
+                    ? '<div class="action-deadline">' + CLOCK_ICON + esc(item.deadline) + '</div>'
                     : '<div class="action-deadline no-deadline">No confirmed deadline</div>';
 
                 const isTentative = item.confidence === 'tentative';
@@ -1114,16 +1340,177 @@ Nadia: Noted. Okay I gotta jump, let's regroup tomorrow.`;
                     (isTentative ? 'Tentative' : 'Firm') + '</span>';
 
                 html += '<div class="action-card">' +
-                    '<div class="action-owner">' + esc(item.owner || 'Unassigned') + '</div>' +
+                    '<div class="action-card-top">' +
+                        '<div class="action-owner"><span class="action-owner-avatar">' + esc(ownerInitials(item.owner)) + '</span>' + esc(owner) + '</div>' +
+                        confidenceHtml +
+                    '</div>' +
                     '<div class="action-task">' + esc(task) + '</div>' +
                     deadlineHtml +
-                    confidenceHtml +
                     '</div>';
             });
             html += '</div>';
 
             board.innerHTML = html;
         }
+
+        // ── Recap tab ──
+        function renderRecap(recap, meetingState, eventMap) {
+            if (!recap) {
+                recapPanel.innerHTML = '<div class="recap-empty">This transcript is long enough ' +
+                    'that recap generation is a planned feature — check the Timeline view for ' +
+                    'full analysis.</div>';
+                return;
+            }
+
+            const topicStatus = {};
+            (meetingState || []).forEach(item => { topicStatus[item.topic] = item.status; });
+
+            let html = '<p class="recap-overview">' + esc(recap.overview) + '</p>';
+            html += '<ul class="recap-beats">';
+
+            (recap.beats || []).forEach((beat, i) => {
+                const status = beat.related_topic && topicStatus[beat.related_topic];
+                const dotColor = (status && STATUS_COLORS[status]) || 'var(--border-hover)';
+                const evidenceHtml = buildEvidenceHtml(beat.evidence_ids, eventMap);
+                const chevronHtml = evidenceHtml
+                    ? '<svg class="recap-beat-chevron" width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5L11 8L6 12.5"/></svg>'
+                    : '';
+
+                html += '<li class="recap-beat" data-beat-index="' + i + '">' +
+                    '<span class="recap-beat-dot" style="background:' + dotColor + '"></span>' +
+                    '<div class="recap-beat-header">' +
+                        '<span class="recap-beat-text">' + esc(beat.text) + '</span>' + chevronHtml +
+                    '</div>';
+                if (evidenceHtml) {
+                    html += '<div class="recap-beat-evidence">' + evidenceHtml + '</div>';
+                }
+                html += '</li>';
+            });
+
+            html += '</ul>';
+            recapPanel.innerHTML = html;
+
+            recapPanel.querySelectorAll('.recap-beat').forEach(el => {
+                if (!el.querySelector('.recap-beat-evidence')) return;
+                el.addEventListener('click', () => el.classList.toggle('expanded'));
+            });
+        }
+
+        // ── Mindmap tab ──
+        function renderMindmap(meetingState, dependencies, eventMap, conflictMap) {
+            const nodes = meetingState || [];
+            const n = nodes.length;
+
+            mindmapCanvas.querySelectorAll('.mindmap-node, .mindmap-center, .mindmap-empty').forEach(el => el.remove());
+
+            if (n === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'mindmap-empty';
+                empty.style.cssText = 'position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:0.8125rem; color:var(--text-tertiary);';
+                empty.textContent = 'No topics to map.';
+                mindmapCanvas.appendChild(empty);
+                mindmapSvg.innerHTML = '';
+                return;
+            }
+
+            // Percentage-based coordinate system (0–100, matching the SVG
+            // viewBox) so the whole layout scales with the container —
+            // no JS resize recalculation needed.
+            const cx = 50, cy = 50;
+            const radius = Math.min(36, 20 + n * 2);
+            const positions = {};
+
+            nodes.forEach((item, i) => {
+                const angle = (2 * Math.PI * i / n) - Math.PI / 2;
+                positions[item.topic] = {
+                    x: cx + radius * Math.cos(angle),
+                    y: cy + radius * Math.sin(angle),
+                };
+            });
+
+            let svg = '';
+            nodes.forEach(item => {
+                const p = positions[item.topic];
+                svg += '<path class="mindmap-spoke" d="M' + cx + ',' + cy + ' L' + p.x + ',' + p.y + '"/>';
+            });
+            (dependencies || []).forEach(dep => {
+                const from = positions[dep.from_topic];
+                const to = positions[dep.to_topic];
+                if (!from || !to) return;
+                svg += '<path class="mindmap-dep-line" d="M' + from.x + ',' + from.y + ' L' + to.x + ',' + to.y + '">' +
+                    '<title>' + esc(dep.from_topic + ' → ' + dep.to_topic + ': ' + dep.reason) + '</title></path>';
+            });
+            mindmapSvg.innerHTML = svg;
+
+            const centerEl = document.createElement('div');
+            centerEl.className = 'mindmap-center';
+            centerEl.textContent = 'Meeting';
+            mindmapCanvas.appendChild(centerEl);
+
+            nodes.forEach(item => {
+                const p = positions[item.topic];
+                const status = item.status || 'UNKNOWN';
+                const color = STATUS_COLORS[status] || STATUS_COLORS.UNKNOWN;
+
+                const nodeEl = document.createElement('div');
+                nodeEl.className = 'mindmap-node';
+                nodeEl.setAttribute('data-status', status);
+                nodeEl.setAttribute('tabindex', '0');
+                nodeEl.setAttribute('role', 'button');
+                nodeEl.setAttribute('aria-label', (STATUS_LABELS[status] || status) + ': ' + item.topic);
+                nodeEl.style.left = p.x + '%';
+                nodeEl.style.top = p.y + '%';
+                nodeEl.innerHTML =
+                    '<div class="mindmap-node-status-row" style="color:' + color + '">' +
+                        '<span class="mindmap-node-dot" style="background:' + color + '"></span>' +
+                        '<span>' + (STATUS_LABELS[status] || status) + '</span>' +
+                    '</div>' +
+                    '<div class="mindmap-node-topic">' + esc(item.topic) + '</div>';
+
+                const activate = () => openPanel(item, eventMap, conflictMap);
+                nodeEl.addEventListener('click', activate);
+                nodeEl.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(); }
+                });
+                mindmapCanvas.appendChild(nodeEl);
+            });
+        }
+
+        // ── Result tabs (Recap / Timeline / Mindmap) — same fetched response, no re-fetch ──
+        function setResultTab(tab) {
+            const isTimeline = tab === 'timeline';
+            const isMindmap = tab === 'mindmap';
+            const isRecap = !isTimeline && !isMindmap;
+
+            tabTimelineBtn.classList.toggle('active', isTimeline);
+            tabTimelineBtn.setAttribute('aria-selected', String(isTimeline));
+            tabMindmapBtn.classList.toggle('active', isMindmap);
+            tabMindmapBtn.setAttribute('aria-selected', String(isMindmap));
+            tabRecapBtn.classList.toggle('active', isRecap);
+            tabRecapBtn.setAttribute('aria-selected', String(isRecap));
+
+            timelinePanel.classList.toggle('hidden', !isTimeline);
+            mindmapPanel.classList.toggle('hidden', !isMindmap);
+            recapPanel.classList.toggle('hidden', !isRecap);
+
+            const activeBtn = isTimeline ? tabTimelineBtn : (isMindmap ? tabMindmapBtn : tabRecapBtn);
+            const trackWidth = resultTabIndicator.offsetWidth;
+            const left = activeBtn.offsetLeft;
+            const right = Math.max(0, trackWidth - left - activeBtn.offsetWidth);
+            const radius = 'calc(var(--radius-md) - 3px)';
+            resultTabIndicator.style.clipPath =
+                'inset(0 ' + right + 'px 0 ' + left + 'px round ' + radius + ')';
+        }
+
+        tabRecapBtn.addEventListener('click', () => setResultTab('recap'));
+        tabTimelineBtn.addEventListener('click', () => setResultTab('timeline'));
+        tabMindmapBtn.addEventListener('click', () => setResultTab('mindmap'));
+        window.addEventListener('resize', () => {
+            if (resultsSection.classList.contains('hidden')) return;
+            const isTimeline = tabTimelineBtn.classList.contains('active');
+            const isMindmap = tabMindmapBtn.classList.contains('active');
+            setResultTab(isTimeline ? 'timeline' : (isMindmap ? 'mindmap' : 'recap'));
+        });
 
         function scrollToNode(topic) {
             const card = document.querySelector('.node-card[data-topic="' + CSS.escape(topic) + '"]');
@@ -1154,7 +1541,7 @@ Nadia: Noted. Okay I gotta jump, let's regroup tomorrow.`;
                 html += '<ul class="insight-list">';
                 gaps.forEach(gap => {
                     const hasNode = !!nodePositions[gap.topic];
-                    html += '<li class="insight-item" data-gap-topic="' + esc(gap.topic) + '">';
+                    html += '<li class="insight-item" data-gap-topic="' + esc(gap.topic) + '" tabindex="0" role="button">';
                     html += '<div class="insight-item-header">';
                     html += '<span class="insight-dot" style="background:var(--status-unknown)"></span>';
                     html += '<span class="insight-topic">' + esc(gap.topic) + '</span>';
@@ -1167,7 +1554,7 @@ Nadia: Noted. Okay I gotta jump, let's regroup tomorrow.`;
                 });
                 html += '</ul>';
             } else {
-                html += '<div class="insight-empty">Nothing left hanging \u2014 every topic reached a resolution.</div>';
+                html += '<div class="insight-empty">' + CHECK_ICON + '<span>Nothing left hanging \u2014 every topic reached a resolution.</span></div>';
             }
             html += '</div>';
 
@@ -1177,16 +1564,20 @@ Nadia: Noted. Okay I gotta jump, let's regroup tomorrow.`;
             if (risks && risks.length > 0) {
                 html += '<ul class="insight-list">';
                 risks.forEach(risk => {
-                    html += '<li class="insight-item">';
-                    html += '<div class="risk-statement">\u201c' + esc(risk.statement) + '\u201d</div>';
+                    html += '<li class="insight-item risk-item">';
+                    html += '<div class="risk-header">' +
+                        '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.5L15 14H1L8 1.5Z"/><path d="M8 6.25V9.25"/><circle cx="8" cy="11.5" r="0.6" fill="currentColor" stroke="none"/></svg>' +
+                        '<span>Risk</span></div>';
+                    html += '<div class="risk-statement">' + esc(risk.statement) + '</div>';
                     html += '<div class="risk-reason">' + esc(risk.reason) + '</div>';
-                    html += '<div class="risk-followup-label">Ask next time:</div>';
-                    html += '<div class="risk-followup">' + esc(risk.suggested_followup_question) + '</div>';
+                    html += '<div class="risk-followup">' +
+                        '<svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 5.75a2.5 2.5 0 1 1 3.5 2.29c-.7.32-1 .8-1 1.46v.3"/><circle cx="8" cy="12.25" r="0.6" fill="currentColor" stroke="none"/></svg>' +
+                        '<span>' + esc(risk.suggested_followup_question) + '</span></div>';
                     html += '</li>';
                 });
                 html += '</ul>';
             } else {
-                html += '<div class="insight-empty">No risks flagged for this meeting.</div>';
+                html += '<div class="insight-empty">' + CHECK_ICON + '<span>No risks flagged for this meeting.</span></div>';
             }
             html += '</div>';
 
@@ -1194,14 +1585,31 @@ Nadia: Noted. Okay I gotta jump, let's regroup tomorrow.`;
 
             // Wire gap click handlers
             sidebar.querySelectorAll('[data-gap-topic]').forEach(el => {
-                el.addEventListener('click', () => {
-                    const topic = el.getAttribute('data-gap-topic');
-                    scrollToNode(topic);
+                const activate = () => scrollToNode(el.getAttribute('data-gap-topic'));
+                el.addEventListener('click', activate);
+                el.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(); }
                 });
             });
         }
 
         // ── Side panel ──
+        // Shared evidence-lookup-by-id rendering — used by the Timeline side
+        // panel and the Recap tab's beat expansion, so there is exactly one
+        // evidence display mechanism in the app, not two.
+        function buildEvidenceHtml(evidenceIds, eventMap) {
+            let html = '';
+            (evidenceIds || []).forEach(eid => {
+                const ev = eventMap[eid];
+                if (!ev) return;
+                html += '<div class="evidence-block">' +
+                    '<span class="evidence-id">' + esc(ev.id) + '</span>' +
+                    '<span class="evidence-speaker">' + esc(ev.speaker) + ':</span> ' +
+                    esc(ev.text) + '</div>';
+            });
+            return html;
+        }
+
         function openPanel(item, eventMap, conflictMap) {
             document.querySelectorAll('.node-card.active').forEach(c => c.classList.remove('active'));
             document.querySelectorAll('.node-card').forEach(c => {
@@ -1258,16 +1666,11 @@ Nadia: Noted. Okay I gotta jump, let's regroup tomorrow.`;
 
             // Evidence
             if (item.evidence_ids && item.evidence_ids.length) {
-                bodyHtml += '<div class="panel-section"><div class="panel-section-label">Evidence</div>';
-                item.evidence_ids.forEach(eid => {
-                    const ev = eventMap[eid];
-                    if (!ev) return;
-                    bodyHtml += '<div class="evidence-block">' +
-                        '<span class="evidence-id">' + esc(ev.id) + '</span>' +
-                        '<span class="evidence-speaker">' + esc(ev.speaker) + ':</span> ' +
-                        esc(ev.text) + '</div>';
-                });
-                bodyHtml += '</div>';
+                const evidenceHtml = buildEvidenceHtml(item.evidence_ids, eventMap);
+                if (evidenceHtml) {
+                    bodyHtml += '<div class="panel-section"><div class="panel-section-label">Evidence</div>' +
+                        evidenceHtml + '</div>';
+                }
             }
 
             panelBody.innerHTML = bodyHtml;

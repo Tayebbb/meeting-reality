@@ -3,7 +3,4 @@ pydantic
 uvicorn
 openai
 python-dotenv
-pytest
-httpx
-anyio[trio]
-pytest-asyncio
+python-multipart

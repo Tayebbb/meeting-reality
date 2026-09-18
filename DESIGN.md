@@ -167,7 +167,7 @@ The `HeroDemo` component: a transcript line streams in character-by-character (`
 
 ### Do:
 - **Do** keep the five-state vocabulary (Decided / Committed / Discussed / Conflict / Unknown) exact and consistent everywhere it appears — it is product semantics, not a color choice.
-- **Do** ground every marketing claim in something the working tool (`static/index.html` / `main.py`) actually produces — the before/after numbers on the landing page come from the real shipped demo transcript's real synthesis output.
+- **Do** ground every marketing claim in something the working tool (`static/index.html` / `main.py`) actually produces — the before/after numbers on the landing page come from a real synthesis run against a representative transcript, not invented figures.
 - **Do** reserve JetBrains Mono for literal data/commands/transcript text.
 - **Do** use `--text-disabled` for tertiary captions — it is tuned to ≥4.5:1 contrast against `--bg`; don't reintroduce the old `#4a4a50` value.
 
