@@ -23,7 +23,7 @@ Most meeting-notes/AI-summary tools produce a prose recap. This product reconstr
 - Two frontends exist in this repo with a deliberate division of labor:
   - `static/index.html` + FastAPI (`main.py`) is the working product surface: paste a transcript **or upload a recording**, it segments/transcribes into evidence events, then synthesizes meeting_state / conflicts / gaps / risks / dependencies via the OpenAI API, and renders it across three views (Recap, Timeline, Mindmap) plus an insights sidebar and action board.
   - The Next.js app (`app/`) is the marketing/landing front door — a persuasive surface for the audience above, linking or embedding toward the working tool rather than reimplementing its logic.
-- Model calls go through OpenAI's API directly (`OPENAI_API_KEY`, currently `gpt-3.5-turbo`). See AGENTS.md.
+- Model calls go through OpenAI's API directly (`OPENAI_API_KEY`, currently `gpt-6-astra`). See AGENTS.md.
 - Transcription for uploaded audio/video goes through OpenAI's Whisper API (`whisper-1`), using the same `OPENAI_API_KEY`. Whisper has no native diarization, so speaker labels are identified with a follow-up LLM call.
 - Status taxonomy (functional meaning, not just color): DECIDED (green), COMMITTED (blue), DISCUSSED (amber), CONFLICT (red), UNKNOWN (gray). This mapping is product semantics and must be preserved across any redesign.
 

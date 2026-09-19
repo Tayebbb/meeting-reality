@@ -85,7 +85,7 @@ Segmentation (Call 1) always runs first and turns raw text into speaker-labeled 
 | Layer | Technology |
 |---|---|
 | Backend | FastAPI, served with Uvicorn |
-| LLM | [OpenAI API](https://openai.com/) using `gpt-3.5-turbo` |
+| LLM | [OpenAI API](https://openai.com/) using `gpt-6-astra` |
 | Speech-to-text | [OpenAI Whisper API](https://platform.openai.com/docs/guides/speech-to-text) |
 | Speaker identification | LLM-based (OpenAI) |
 | Frontend (working tool) | Vanilla HTML/CSS/JS — no build step |
@@ -130,7 +130,7 @@ Segmentation (Call 1) always runs first and turns raw text into speaker-labeled 
 
 5. **Open it.** Go to [http://localhost:8000/static/](http://localhost:8000/static/), paste a transcript (or upload a recording), and hit **Analyze**.
 
-**Cost note**: The app uses OpenAI's API, which is a paid service. Costs are low (roughly $0.01–$0.05 per analysis depending on transcript length and your OpenAI account's pricing tier), but you'll need an active OpenAI account with available credits.
+**Cost note**: The app uses OpenAI's API, which is a paid service. `gpt-6-astra` is priced at $10 / million input tokens and $50 / million output tokens — expect roughly $0.10–$0.50+ per analysis depending on transcript length, plus Whisper's per-minute rate for uploaded recordings. You'll need an active OpenAI account with available credits. Swap `MODEL` in `main.py` for a cheaper model if cost matters more than quality for your use case.
 
 ## Project Structure
 

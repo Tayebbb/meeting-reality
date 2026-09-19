@@ -7,8 +7,10 @@ Rules:
   `openai` SDK's default base_url. There is no OpenRouter or other provider
   fallback — do not repoint the client at a different base_url.
 - Load OPENAI_API_KEY via python-dotenv, never hardcode it.
-- Use model "gpt-3.5-turbo" for all LLM calls (synthesis, recap, speaker
-  identification) unless told otherwise.
+- Use model "gpt-6-astra" for all LLM calls (synthesis, recap, speaker
+  identification) unless told otherwise. This model requires
+  `max_completion_tokens` in Chat Completions calls, not `max_tokens` — the
+  API rejects the older parameter name outright.
 - Rate-limited calls (429) occasionally happen under load — that's routine,
   expected behavior, not a hard failure. Model calls go through
   `_call_with_retry` in main.py, which retries 429s with backoff; do not

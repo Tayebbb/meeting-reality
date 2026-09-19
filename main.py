@@ -415,9 +415,9 @@ RECAP_SYSTEM_PROMPT: str = (
 )
 
 # OpenAI API configuration
-# Uses gpt-3.5-turbo for cost-effectiveness with good performance
+# Uses GPT-6 Astra — supports Chat Completions structured outputs (json_schema)
 # Users should set their own OPENAI_API_KEY environment variable
-MODEL: str = "gpt-3.5-turbo"
+MODEL: str = "gpt-6-astra"
 
 # Explicit output caps. Some models spend part of max_tokens on hidden
 # reasoning tokens before any visible JSON is written, which can silently
@@ -587,7 +587,7 @@ def _run_synthesis(
                 "type": "json_schema",
                 "json_schema": SYNTHESIS_SCHEMA,
             },
-            max_tokens=SYNTHESIS_MAX_TOKENS,
+            max_completion_tokens=SYNTHESIS_MAX_TOKENS,
         ))
     except OpenAIError as exc:
         raise HTTPException(
@@ -650,7 +650,7 @@ def _run_recap(client: OpenAI, events: list[dict[str, str]]) -> dict[str, Any] |
                 "type": "json_schema",
                 "json_schema": RECAP_SCHEMA,
             },
-            max_tokens=RECAP_MAX_TOKENS,
+            max_completion_tokens=RECAP_MAX_TOKENS,
         ))
     except OpenAIError as exc:
         logger.warning("Recap call (Call 3) failed, degrading to recap: null: %s", exc)
@@ -769,7 +769,7 @@ def _openai_transcribe(file_bytes: bytes, filename: str) -> dict[str, Any]:
                     },
                 },
             },
-            max_tokens=4096,
+            max_completion_tokens=4096,
         ))
     except Exception as exc:
         logger.warning(
@@ -853,7 +853,7 @@ async def analyze(request: AnalyzeRequest) -> dict[str, Any]:
                 "type": "json_schema",
                 "json_schema": SEGMENTATION_SCHEMA,
             },
-            max_tokens=SEGMENTATION_MAX_TOKENS,
+            max_completion_tokens=SEGMENTATION_MAX_TOKENS,
         ))
     except OpenAIError as exc:
         raise HTTPException(
